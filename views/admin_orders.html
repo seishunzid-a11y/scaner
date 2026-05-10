@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daftar Pesanan - TikTok Shop Scanner</title>
+  <link rel="stylesheet" href="/public/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-brand">📦 TikTok Shop Scanner</div>
+    <div class="nav-links">
+      <a href="/admin/dashboard">Dashboard</a>
+      <a href="/admin/upload">Upload Resi</a>
+      <a href="/admin/orders" class="active">Pesanan</a>
+      <a href="/admin/products">Produk</a>
+      <a href="/admin/reports">Laporan</a>
+      <a href="/logout" class="btn-logout">Logout ({{userName}})</a>
+    </div>
+    <button class="nav-toggle" onclick="toggleNav()">☰</button>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <h2>Daftar Pesanan</h2>
+      <a href="/admin/upload" class="btn btn-primary">📁 Upload Resi Baru</a>
+    </div>
+
+    <!-- Filter -->
+    <div class="card filter-bar">
+      <div class="filter-row">
+        <button class="filter-btn active" onclick="filterOrders('all')" id="filterAll">Semua</button>
+        <button class="filter-btn" onclick="filterOrders('pending')" id="filterPending">⏳ Belum Dipacking</button>
+        <button class="filter-btn" onclick="filterOrders('packed')" id="filterPacked">✅ Sudah Dipacking</button>
+      </div>
+      <div class="search-box" style="margin-bottom:0;">
+        <input type="text" id="searchInput" placeholder="Cari no. pesanan, resi, atau nama pembeli..." oninput="searchOrders()">
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid" id="orderStats">
+      <div class="stat-card">
+        <div class="stat-icon">📋</div>
+        <div class="stat-info"><h3 id="statTotal">0</h3><p>Total Pesanan</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">⏳</div>
+        <div class="stat-info"><h3 id="statPending">0</h3><p>Belum Dipacking</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">✅</div>
+        <div class="stat-info"><h3 id="statPacked">0</h3><p>Sudah Dipacking</p></div>
+      </div>
+    </div>
+
+    <!-- Orders Table -->
+    <div class="card">
+      <div id="orderList">
+        <p class="loading">Memuat data pesanan...</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let allOrders = [];
+    let currentFilter = 'all';
+
+    function toggleNav() {
+      document.querySelector('.nav-links').classList.toggle('show');
+    }
+
+    async function loadOrders() {
+      try {
+        const res = await fetch('/api/orders');
+        const data = await res.json();
+        allOrders = data.data.reverse(); // newest first
+        updateStats();
+        renderOrders(allOrders);
+      } catch (err) {
+        document.getElementById('orderList').innerHTML = '<p class="error">Gagal memuat data pesanan.</p>';
+      }
+    }
+
+    function updateStats() {
+      document.getElementById('statTotal').textContent = allOrders.length;
+      document.getElementById('statPending').textContent = allOrders.filter(o => o.status === 'pending').length;
+      document.getElementById('statPacked').textContent = allOrders.filter(o => o.status === 'packed').length;
+    }
+
+    function filterOrders(status) {
+      currentFilter = status;
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('filter' + status.charAt(0).toUpperCase() + status.slice(1)).classList.add('active');
+      if (status === 'all') document.getElementById('filterAll').classList.add('active');
+
+      const filtered = status === 'all' ? allOrders : allOrders.filter(o => o.status === status);
+      renderOrders(filtered);
+    }
+
+    function searchOrders() {
+      const q = document.getElementById('searchInput').value.toLowerCase();
+      let filtered = currentFilter === 'all' ? allOrders : allOrders.filter(o => o.status === currentFilter);
+      if (q) {
+        filtered = filtered.filter(o =>
+          (o.orderNumber || '').toLowerCase().includes(q) ||
+          (o.resiNumber || '').toLowerCase().includes(q) ||
+          (o.buyerName || '').toLowerCase().includes(q) ||
+          (o.productName || '').toLowerCase().includes(q) ||
+          (o.sku || '').toLowerCase().includes(q)
+        );
+      }
+      renderOrders(filtered);
+    }
+
+    function renderOrders(orders) {
+      const container = document.getElementById('orderList');
+      if (orders.length === 0) {
+        container.innerHTML = '<p class="empty">Tidak ada pesanan.</p>';
+        return;
+      }
+
+      let html = `<div class="table-wrapper"><table class="table">
+        <thead><tr>
+          <th>No</th>
+          <th>No. Pesanan</th>
+          <th>No. Resi</th>
+          <th>Pembeli</th>
+          <th>Produk</th>
+          <th>SKU</th>
+          <th>Qty</th>
+          <th>Kurir</th>
+          <th>Status</th>
+          <th>Aksi</th>
+        </tr></thead><tbody>`;
+
+      orders.forEach((o, i) => {
+        let statusBadge = '';
+        if (o.status === 'pending') statusBadge = '<span class="badge stock-medium">⏳ Belum Packing</span>';
+        else if (o.status === 'packed') statusBadge = '<span class="badge stock-ok">✅ Sudah Packing</span>';
+        else statusBadge = `<span class="badge">${o.status}</span>`;
+
+        html += `<tr>
+          <td>${i + 1}</td>
+          <td><code>${o.orderNumber || '-'}</code></td>
+          <td><code>${o.resiNumber || '-'}</code></td>
+          <td>${o.buyerName || '-'}</td>
+          <td>${o.productName || '-'}</td>
+          <td><code>${o.sku || '-'}</code></td>
+          <td>${o.quantity || 1}</td>
+          <td>${o.courier || '-'}</td>
+          <td>${statusBadge}</td>
+          <td class="actions">
+            <button class="btn btn-sm btn-primary" onclick="printResi('${o.id}')" title="Cetak Resi">🖨️</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteOrder('${o.id}')" title="Hapus">🗑️</button>
+          </td>
+        </tr>`;
+      });
+
+      html += '</tbody></table></div>';
+      container.innerHTML = html;
+    }
+
+    async function deleteOrder(id) {
+      if (!confirm('Hapus pesanan ini?')) return;
+      await fetch(`/api/orders/${id}`, { method: 'DELETE' });
+      loadOrders();
+    }
+
+    function printResi(id) {
+      window.open(`/packing/resi?print=${id}`, '_blank');
+    }
+
+    loadOrders();
+  </script>
+</body>
+</html>

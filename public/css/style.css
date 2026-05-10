@@ -580,6 +580,188 @@ body {
   color: #999;
 }
 
+/* ==================== UPLOAD AREA ==================== */
+.upload-area {
+  border: 3px dashed #ddd;
+  border-radius: 16px;
+  padding: 40px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.upload-area:hover,
+.upload-area.dragover {
+  border-color: #fe2c55;
+  background: #fff5f7;
+}
+
+.upload-icon {
+  font-size: 48px;
+  margin-bottom: 10px;
+}
+
+.upload-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.upload-sub {
+  font-size: 13px;
+  color: #888;
+  margin-bottom: 14px;
+}
+
+.file-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #f0f9ff;
+  border: 1px solid #b3d9ff;
+  border-radius: 8px;
+}
+
+.file-name {
+  font-weight: 600;
+  color: #0066cc;
+}
+
+.success-msg {
+  color: #28a745;
+  font-weight: 600;
+  margin-top: 12px;
+}
+
+/* ==================== FILTER BAR ==================== */
+.filter-bar {
+  padding: 16px 24px;
+}
+
+.filter-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.filter-btn {
+  padding: 8px 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 20px;
+  background: white;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.filter-btn:hover {
+  border-color: #fe2c55;
+  color: #fe2c55;
+}
+
+.filter-btn.active {
+  background: #fe2c55;
+  color: white;
+  border-color: #fe2c55;
+}
+
+/* ==================== QUICK ACTIONS ==================== */
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.action-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 16px;
+  border: 2px solid #eee;
+  border-radius: 12px;
+  text-decoration: none;
+  color: #333;
+  transition: all 0.2s;
+}
+
+.action-card:hover {
+  border-color: #fe2c55;
+  background: #fff5f7;
+  transform: translateY(-2px);
+}
+
+.action-icon {
+  font-size: 28px;
+}
+
+/* ==================== CARD EXTRAS ==================== */
+.card-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.card-desc {
+  color: #666;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+
+.page-desc {
+  color: #666;
+  margin-bottom: 20px;
+}
+
+.sku-highlight {
+  background: #fff3cd !important;
+  padding: 3px 8px !important;
+  font-weight: 600;
+}
+
+/* ==================== TABLE WRAPPER ==================== */
+.table-wrapper {
+  overflow-x: auto;
+}
+
+/* ==================== DETAILS/SUMMARY ==================== */
+details.card {
+  cursor: default;
+}
+
+.details-toggle {
+  cursor: pointer;
+  padding: 4px 0;
+  user-select: none;
+}
+
+.details-toggle:hover {
+  color: #fe2c55;
+}
+
+/* ==================== HELP SECTION ==================== */
+.help-steps ol {
+  padding-left: 20px;
+  line-height: 2;
+}
+
+.help-steps ol li {
+  margin-bottom: 4px;
+}
+
+.help-note {
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: #f0f9ff;
+  border-left: 4px solid #0099ff;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
 /* ==================== UTILITY ==================== */
 .loading { color: #888; font-style: italic; }
 .empty { color: #999; text-align: center; padding: 20px; }

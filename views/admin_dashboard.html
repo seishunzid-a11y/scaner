@@ -11,9 +11,10 @@
     <div class="nav-brand">📦 TikTok Shop Scanner</div>
     <div class="nav-links">
       <a href="/admin/dashboard" class="active">Dashboard</a>
+      <a href="/admin/upload">Upload Resi</a>
+      <a href="/admin/orders">Pesanan</a>
       <a href="/admin/products">Produk</a>
       <a href="/admin/reports">Laporan</a>
-      <a href="/admin/resi">Cetak Resi</a>
       <a href="/logout" class="btn-logout">Logout ({{userName}})</a>
     </div>
     <button class="nav-toggle" onclick="toggleNav()">☰</button>
@@ -23,6 +24,13 @@
     <h2>Dashboard Admin</h2>
     
     <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon">📋</div>
+        <div class="stat-info">
+          <h3>{{pendingOrders}}</h3>
+          <p>Pesanan Belum Packing</p>
+        </div>
+      </div>
       <div class="stat-card">
         <div class="stat-icon">📦</div>
         <div class="stat-info">
@@ -51,6 +59,36 @@
           <p>Barang Keluar Hari Ini</p>
         </div>
       </div>
+      <div class="stat-card">
+        <div class="stat-icon">🧾</div>
+        <div class="stat-info">
+          <h3>{{totalOrders}}</h3>
+          <p>Total Pesanan</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="card">
+      <h3>Aksi Cepat</h3>
+      <div class="quick-actions">
+        <a href="/admin/upload" class="action-card">
+          <span class="action-icon">📁</span>
+          <span>Upload Resi CSV</span>
+        </a>
+        <a href="/admin/orders" class="action-card">
+          <span class="action-icon">📋</span>
+          <span>Lihat Pesanan</span>
+        </a>
+        <a href="/admin/products" class="action-card">
+          <span class="action-icon">📦</span>
+          <span>Kelola Produk</span>
+        </a>
+        <a href="/admin/reports" class="action-card">
+          <span class="action-icon">📊</span>
+          <span>Laporan Harian</span>
+        </a>
+      </div>
     </div>
 
     <div class="card">
@@ -77,19 +115,19 @@
           return;
         }
         
-        let html = '<table class="table"><thead><tr><th>Waktu</th><th>Produk</th><th>SKU</th><th>Qty</th><th>Sisa Stok</th><th>Oleh</th></tr></thead><tbody>';
+        let html = '<div class="table-wrapper"><table class="table"><thead><tr><th>Waktu</th><th>Produk</th><th>SKU</th><th>Qty</th><th>Sisa Stok</th><th>Oleh</th></tr></thead><tbody>';
         data.data.forEach(scan => {
           const time = new Date(scan.scannedAt).toLocaleString('id-ID');
           html += `<tr>
             <td>${time}</td>
             <td>${scan.productName}</td>
-            <td>${scan.sku}</td>
+            <td><code>${scan.sku}</code></td>
             <td>${scan.quantity}</td>
             <td>${scan.stockAfter}</td>
             <td>${scan.scannedByName}</td>
           </tr>`;
         });
-        html += '</tbody></table>';
+        html += '</tbody></table></div>';
         container.innerHTML = html;
       } catch (err) {
         document.getElementById('recentScans').innerHTML = '<p class="error">Gagal memuat data.</p>';

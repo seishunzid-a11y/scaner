@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload Resi TikTok - TikTok Shop Scanner</title>
+  <link rel="stylesheet" href="/public/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-brand">📦 TikTok Shop Scanner</div>
+    <div class="nav-links">
+      <a href="/admin/dashboard">Dashboard</a>
+      <a href="/admin/upload" class="active">Upload Resi</a>
+      <a href="/admin/orders">Pesanan</a>
+      <a href="/admin/products">Produk</a>
+      <a href="/admin/reports">Laporan</a>
+      <a href="/logout" class="btn-logout">Logout ({{userName}})</a>
+    </div>
+    <button class="nav-toggle" onclick="toggleNav()">☰</button>
+  </nav>
+
+  <div class="container">
+    <h2>Upload Resi dari TikTok Shop</h2>
+    <p class="page-desc">Upload file CSV yang di-export dari TikTok Shop Seller Center. Pesanan akan otomatis masuk ke daftar pesanan.</p>
+
+    <div class="card">
+      <h3>📁 Upload File CSV / PDF</h3>
+      <div class="upload-area" id="dropZone">
+        <div class="upload-icon">📄</div>
+        <p class="upload-text">Drag & drop file CSV atau PDF di sini</p>
+        <p class="upload-sub">atau klik untuk pilih file (CSV / PDF resi TikTok Shop)</p>
+        <input type="file" id="fileInput" accept=".csv,.txt,.pdf" style="display:none">
+        <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">Pilih File</button>
+      </div>
+      <div id="fileInfo" class="file-info" style="display:none;">
+        <span class="file-name" id="fileName"></span>
+        <button class="btn btn-sm btn-danger" onclick="clearFile()">✕ Hapus</button>
+      </div>
+
+      <div class="form-section" style="margin-top:20px;">
+        <h4>🏪 Info Toko (opsional, akan dipakai untuk cetak resi)</h4>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Nama Toko</label>
+            <input type="text" id="shopName" value="TikTok Shop" placeholder="Nama toko Anda">
+          </div>
+          <div class="form-group">
+            <label>No. Telepon Toko</label>
+            <input type="text" id="shopPhone" placeholder="08xxxxxxxxxx">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Alamat Toko</label>
+          <textarea id="shopAddress" placeholder="Alamat lengkap toko pengirim"></textarea>
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-large" id="uploadBtn" onclick="uploadFile()" disabled>
+        ⬆️ Upload & Import Pesanan
+      </button>
+    </div>
+
+    <!-- Upload Result -->
+    <div id="uploadResult" class="card" style="display:none;">
+      <h3>✅ Hasil Import</h3>
+      <div class="upload-stats" id="uploadStats"></div>
+    </div>
+
+    <!-- Preview Table -->
+    <div id="previewSection" class="card" style="display:none;">
+      <div class="preview-header">
+        <h3>📋 Preview Data Pesanan (<span id="previewCount">0</span> pesanan)</h3>
+      </div>
+      <div class="table-wrapper">
+        <table class="table" id="previewTable">
+          <thead>
+            <tr>
+              <th>No</th>
+              <th>No. Pesanan</th>
+              <th>No. Resi</th>
+              <th>Pembeli</th>
+              <th>Produk</th>
+              <th>SKU</th>
+              <th>Qty</th>
+              <th>Kurir</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="previewBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Help Section -->
+    <div class="card">
+      <h3>❓ Cara Export dari TikTok Shop</h3>
+      <div class="help-steps">
+        <h4>Format CSV (Rekomendasi):</h4>
+        <ol>
+          <li>Buka <strong>TikTok Shop Seller Center</strong></li>
+          <li>Masuk ke menu <strong>Pesanan → Pengiriman</strong></li>
+          <li>Pilih pesanan yang mau dikirim</li>
+          <li>Klik <strong>"Export"</strong> → pilih format <strong>CSV</strong></li>
+          <li>Upload file CSV tersebut di halaman ini</li>
+        </ol>
+        <br>
+        <h4>Format PDF (Label Resi):</h4>
+        <ol>
+          <li>Buka <strong>TikTok Shop Seller Center</strong></li>
+          <li>Masuk ke <strong>Pesanan → Cetak Label</strong></li>
+          <li>Download PDF label resi</li>
+          <li>Upload file PDF tersebut di halaman ini</li>
+          <li>Sistem akan otomatis extract data dari PDF</li>
+        </ol>
+        <div class="help-note">
+          <strong>💡 Tips:</strong> Format CSV lebih akurat karena datanya terstruktur. PDF akan di-extract otomatis tapi hasilnya tergantung format PDF dari TikTok Shop.
+          <br><br>
+          <strong>Kolom CSV yang dikenali:</strong> Order ID, Tracking Number, Nama Penerima, No. Telepon, Alamat, Kota, Provinsi, Kode Pos, Kurir, Nama Produk, SKU, Jumlah, Berat
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let selectedFile = null;
+
+    function toggleNav() {
+      document.querySelector('.nav-links').classList.toggle('show');
+    }
+
+    // Drag & Drop
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      const files = e.dataTransfer.files;
+      if (files.length > 0) handleFile(files[0]);
+    });
+
+    dropZone.addEventListener('click', () => {
+      fileInput.click();
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) handleFile(e.target.files[0]);
+    });
+
+    function handleFile(file) {
+      const ext = file.name.split('.').pop().toLowerCase();
+      if (!['csv', 'txt', 'pdf'].includes(ext)) {
+        alert('Format file tidak didukung. Gunakan file CSV atau PDF.');
+        return;
+      }
+
+      selectedFile = file;
+      document.getElementById('fileInfo').style.display = 'flex';
+      document.getElementById('fileName').textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+      document.getElementById('uploadBtn').disabled = false;
+      dropZone.style.display = 'none';
+
+      // Preview CSV content (only for CSV files)
+      if (['csv', 'txt'].includes(ext)) {
+        previewCSV(file);
+      } else {
+        document.getElementById('previewSection').style.display = 'block';
+        document.getElementById('previewCount').textContent = '?';
+        document.getElementById('previewBody').innerHTML = '<tr><td colspan="9" style="text-align:center;color:#888;">Preview tidak tersedia untuk PDF. Data akan di-extract otomatis saat upload.</td></tr>';
+      }
+    }
+
+    function clearFile() {
+      selectedFile = null;
+      fileInput.value = '';
+      document.getElementById('fileInfo').style.display = 'none';
+      document.getElementById('uploadBtn').disabled = true;
+      document.getElementById('previewSection').style.display = 'none';
+      dropZone.style.display = 'block';
+    }
+
+    function previewCSV(file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const content = e.target.result;
+        const lines = content.split('\n').filter(l => l.trim());
+        
+        if (lines.length < 2) {
+          alert('File CSV kosong atau tidak valid.');
+          clearFile();
+          return;
+        }
+
+        // Parse header and show preview
+        const headers = parseCSVLine(lines[0]);
+        const previewBody = document.getElementById('previewBody');
+        previewBody.innerHTML = '';
+
+        const maxPreview = Math.min(lines.length - 1, 20);
+        document.getElementById('previewCount').textContent = lines.length - 1;
+
+        for (let i = 1; i <= maxPreview; i++) {
+          const values = parseCSVLine(lines[i]);
+          const row = {};
+          headers.forEach((h, idx) => { row[h.toLowerCase().trim()] = (values[idx] || '').trim(); });
+
+          // Try to find relevant columns
+          const orderNum = findColumn(row, ['order_id', 'order_sn', 'no_pesanan', 'nomor_pesanan', 'order number', 'id pesanan', 'order id']);
+          const resi = findColumn(row, ['tracking_number', 'no_resi', 'nomor_resi', 'tracking number', 'resi', 'awb', 'nomor resi']);
+          const buyer = findColumn(row, ['buyer_name', 'nama_pembeli', 'recipient_name', 'nama penerima', 'buyer name', 'penerima', 'nama pembeli']);
+          const product = findColumn(row, ['product_name', 'nama_produk', 'item_name', 'nama produk', 'nama barang', 'produk']);
+          const sku = findColumn(row, ['sku', 'seller_sku', 'sku penjual', 'sku induk']);
+          const qty = findColumn(row, ['quantity', 'qty', 'jumlah']);
+          const courier = findColumn(row, ['courier', 'kurir', 'shipping_provider', 'jasa kirim', 'ekspedisi', 'opsi pengiriman']);
+
+          previewBody.innerHTML += `<tr>
+            <td>${i}</td>
+            <td><code>${orderNum || '-'}</code></td>
+            <td><code>${resi || '-'}</code></td>
+            <td>${buyer || '-'}</td>
+            <td>${product || '-'}</td>
+            <td><code>${sku || '-'}</code></td>
+            <td>${qty || '1'}</td>
+            <td>${courier || '-'}</td>
+            <td><span class="badge stock-medium">Belum Import</span></td>
+          </tr>`;
+        }
+
+        if (lines.length - 1 > maxPreview) {
+          previewBody.innerHTML += `<tr><td colspan="9" style="text-align:center;color:#888;">...dan ${lines.length - 1 - maxPreview} pesanan lainnya</td></tr>`;
+        }
+
+        document.getElementById('previewSection').style.display = 'block';
+      };
+      reader.readAsText(file);
+    }
+
+    function parseCSVLine(line) {
+      const result = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') { inQuotes = !inQuotes; }
+        else if ((char === ',' || char === ';' || char === '\t') && !inQuotes) { result.push(current); current = ''; }
+        else { current += char; }
+      }
+      result.push(current);
+      return result;
+    }
+
+    function findColumn(row, possibleNames) {
+      const rowKeys = Object.keys(row);
+      for (const name of possibleNames) {
+        const match = rowKeys.find(k => k === name || k.includes(name));
+        if (match && row[match]) return row[match];
+      }
+      return '';
+    }
+
+    async function uploadFile() {
+      if (!selectedFile) return;
+
+      const btn = document.getElementById('uploadBtn');
+      btn.disabled = true;
+      btn.textContent = '⏳ Mengupload...';
+
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('shopName', document.getElementById('shopName').value);
+      formData.append('shopPhone', document.getElementById('shopPhone').value);
+      formData.append('shopAddress', document.getElementById('shopAddress').value);
+
+      try {
+        const res = await fetch('/api/upload-resi', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          const resultDiv = document.getElementById('uploadResult');
+          resultDiv.style.display = 'block';
+          document.getElementById('uploadStats').innerHTML = `
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-icon">📥</div>
+                <div class="stat-info"><h3>${data.data.total}</h3><p>Total di File</p></div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon">✅</div>
+                <div class="stat-info"><h3>${data.data.imported}</h3><p>Berhasil Import</p></div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon">⚠️</div>
+                <div class="stat-info"><h3>${data.data.duplicates}</h3><p>Duplikat (dilewati)</p></div>
+              </div>
+            </div>
+            <p class="success-msg">✅ ${data.message}</p>
+            <a href="/admin/orders" class="btn btn-primary" style="margin-top:12px;">Lihat Daftar Pesanan →</a>
+          `;
+
+          // Update preview status
+          document.querySelectorAll('#previewBody .badge').forEach(badge => {
+            badge.className = 'badge stock-ok';
+            badge.textContent = 'Imported';
+          });
+        } else {
+          alert('Gagal: ' + data.message);
+        }
+      } catch (err) {
+        alert('Terjadi kesalahan saat upload.');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '⬆️ Upload & Import Pesanan';
+      }
+    }
+  </script>
+</body>
+</html>
