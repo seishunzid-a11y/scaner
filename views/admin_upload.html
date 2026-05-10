@@ -25,12 +25,12 @@
     <p class="page-desc">Upload file CSV yang di-export dari TikTok Shop Seller Center. Pesanan akan otomatis masuk ke daftar pesanan.</p>
 
     <div class="card">
-      <h3>📁 Upload File CSV</h3>
+      <h3>📁 Upload File CSV / PDF</h3>
       <div class="upload-area" id="dropZone">
         <div class="upload-icon">📄</div>
-        <p class="upload-text">Drag & drop file CSV di sini</p>
-        <p class="upload-sub">atau klik untuk pilih file</p>
-        <input type="file" id="fileInput" accept=".csv,.txt" style="display:none">
+        <p class="upload-text">Drag & drop file CSV atau PDF di sini</p>
+        <p class="upload-sub">atau klik untuk pilih file (CSV / PDF resi TikTok Shop)</p>
+        <input type="file" id="fileInput" accept=".csv,.txt,.pdf" style="display:none">
         <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">Pilih File</button>
       </div>
       <div id="fileInfo" class="file-info" style="display:none;">
@@ -94,18 +94,29 @@
 
     <!-- Help Section -->
     <div class="card">
-      <h3>❓ Cara Export CSV dari TikTok Shop</h3>
+      <h3>❓ Cara Export dari TikTok Shop</h3>
       <div class="help-steps">
+        <h4>Format CSV (Rekomendasi):</h4>
         <ol>
           <li>Buka <strong>TikTok Shop Seller Center</strong></li>
           <li>Masuk ke menu <strong>Pesanan → Pengiriman</strong></li>
-          <li>Pilih pesanan yang mau dikirim atau filter berdasarkan tanggal</li>
-          <li>Klik tombol <strong>"Export"</strong> atau <strong>"Unduh"</strong></li>
-          <li>Pilih format <strong>CSV</strong></li>
+          <li>Pilih pesanan yang mau dikirim</li>
+          <li>Klik <strong>"Export"</strong> → pilih format <strong>CSV</strong></li>
           <li>Upload file CSV tersebut di halaman ini</li>
         </ol>
+        <br>
+        <h4>Format PDF (Label Resi):</h4>
+        <ol>
+          <li>Buka <strong>TikTok Shop Seller Center</strong></li>
+          <li>Masuk ke <strong>Pesanan → Cetak Label</strong></li>
+          <li>Download PDF label resi</li>
+          <li>Upload file PDF tersebut di halaman ini</li>
+          <li>Sistem akan otomatis extract data dari PDF</li>
+        </ol>
         <div class="help-note">
-          <strong>💡 Kolom yang dikenali:</strong> Order ID, Tracking Number, Nama Penerima, No. Telepon, Alamat, Kota, Provinsi, Kode Pos, Kurir, Nama Produk, SKU, Jumlah, Berat
+          <strong>💡 Tips:</strong> Format CSV lebih akurat karena datanya terstruktur. PDF akan di-extract otomatis tapi hasilnya tergantung format PDF dari TikTok Shop.
+          <br><br>
+          <strong>Kolom CSV yang dikenali:</strong> Order ID, Tracking Number, Nama Penerima, No. Telepon, Alamat, Kota, Provinsi, Kode Pos, Kurir, Nama Produk, SKU, Jumlah, Berat
         </div>
       </div>
     </div>
@@ -148,8 +159,8 @@
 
     function handleFile(file) {
       const ext = file.name.split('.').pop().toLowerCase();
-      if (!['csv', 'txt'].includes(ext)) {
-        alert('Format file tidak didukung. Gunakan file CSV.');
+      if (!['csv', 'txt', 'pdf'].includes(ext)) {
+        alert('Format file tidak didukung. Gunakan file CSV atau PDF.');
         return;
       }
 
@@ -159,8 +170,14 @@
       document.getElementById('uploadBtn').disabled = false;
       dropZone.style.display = 'none';
 
-      // Preview CSV content
-      previewCSV(file);
+      // Preview CSV content (only for CSV files)
+      if (['csv', 'txt'].includes(ext)) {
+        previewCSV(file);
+      } else {
+        document.getElementById('previewSection').style.display = 'block';
+        document.getElementById('previewCount').textContent = '?';
+        document.getElementById('previewBody').innerHTML = '<tr><td colspan="9" style="text-align:center;color:#888;">Preview tidak tersedia untuk PDF. Data akan di-extract otomatis saat upload.</td></tr>';
+      }
     }
 
     function clearFile() {

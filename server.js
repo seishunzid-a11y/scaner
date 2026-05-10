@@ -208,6 +208,381 @@ function mapTikTokCSVToOrders(rows) {
   return orders;
 }
 
+// ==================== PDF TEXT EXTRACTOR (Native, no dependencies) ====================
+function extractPDFText(buffer) {
+  // PDF text extraction - handles common PDF text encoding
+  const content = buffer.toString('binary');
+  const textBlocks = [];
+
+  // Method 1: Extract text between BT...ET (Text objects)
+  const btEtRegex = /BT\s([\s\S]*?)ET/g;
+  let match;
+  while ((match = btEtRegex.exec(content)) !== null) {
+    const block = match[1];
+    // Extract text from Tj, TJ, ' and " operators
+    const tjRegex = /\(([^)]*)\)\s*Tj/g;
+    let tjMatch;
+    while ((tjMatch = tjRegex.exec(block)) !== null) {
+      const decoded = decodePDFString(tjMatch[1]);
+      if (decoded.trim()) textBlocks.push(decoded.trim());
+    }
+
+    // TJ operator (array of strings)
+    const tjArrayRegex = /\[(.*?)\]\s*TJ/g;
+    let tjArrMatch;
+    while ((tjArrMatch = tjArrayRegex.exec(block)) !== null) {
+      const parts = tjArrMatch[1];
+      const strRegex = /\(([^)]*)\)/g;
+      let strMatch;
+      let combined = '';
+      while ((strMatch = strRegex.exec(parts)) !== null) {
+        combined += decodePDFString(strMatch[1]);
+      }
+      if (combined.trim()) textBlocks.push(combined.trim());
+    }
+  }
+
+  // Method 2: Extract from stream content (for compressed/encoded text)
+  const streamRegex = /stream\r?\n([\s\S]*?)\r?\nendstream/g;
+  while ((match = streamRegex.exec(content)) !== null) {
+    const streamData = match[1];
+    // Try to find readable text patterns in uncompressed streams
+    const readableText = streamData.replace(/[^\x20-\x7E\n\r]/g, ' ')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+    
+    if (readableText.length > 10) {
+      // Look for text operators in stream
+      const streamTjRegex = /\(([^)]{2,})\)\s*Tj/g;
+      let stMatch;
+      while ((stMatch = streamTjRegex.exec(readableText)) !== null) {
+        const decoded = decodePDFString(stMatch[1]);
+        if (decoded.trim().length > 1) textBlocks.push(decoded.trim());
+      }
+      
+      // TJ arrays in stream
+      const streamTJRegex = /\[(.*?)\]\s*TJ/g;
+      while ((stMatch = streamTJRegex.exec(readableText)) !== null) {
+        const parts = stMatch[1];
+        const strRegex2 = /\(([^)]*)\)/g;
+        let sm;
+        let combined = '';
+        while ((sm = strRegex2.exec(parts)) !== null) {
+          combined += decodePDFString(sm[1]);
+        }
+        if (combined.trim().length > 1) textBlocks.push(combined.trim());
+      }
+    }
+  }
+
+  // Method 3: Try to decompress FlateDecode streams
+  try {
+    const zlib = require('zlib');
+    const flateStreams = [];
+    const lengthRegex = /\/FlateDecode.*?stream\r?\n/g;
+    let pos = 0;
+    
+    // Find all stream boundaries
+    const rawContent = buffer;
+    let searchStr = buffer.toString('binary');
+    const streamStarts = [];
+    let idx = 0;
+    while ((idx = searchStr.indexOf('stream\r\n', idx)) !== -1) {
+      streamStarts.push(idx + 8);
+      idx += 8;
+    }
+    idx = 0;
+    while ((idx = searchStr.indexOf('stream\n', idx)) !== -1) {
+      streamStarts.push(idx + 7);
+      idx += 7;
+    }
+    
+    for (const start of streamStarts) {
+      const endIdx = searchStr.indexOf('endstream', start);
+      if (endIdx === -1 || endIdx - start > 500000) continue;
+      
+      const streamBuf = buffer.slice(start, endIdx);
+      try {
+        const inflated = zlib.inflateSync(streamBuf);
+        const inflatedText = inflated.toString('binary');
+        
+        // Extract text from decompressed content
+        const tjRegex2 = /\(([^)]*)\)\s*Tj/g;
+        let m;
+        while ((m = tjRegex2.exec(inflatedText)) !== null) {
+          const decoded = decodePDFString(m[1]);
+          if (decoded.trim().length > 1) textBlocks.push(decoded.trim());
+        }
+        
+        const tjArrayRegex2 = /\[(.*?)\]\s*TJ/g;
+        while ((m = tjArrayRegex2.exec(inflatedText)) !== null) {
+          const parts = m[1];
+          const strRegex3 = /\(([^)]*)\)/g;
+          let sm2;
+          let combined = '';
+          while ((sm2 = strRegex3.exec(parts)) !== null) {
+            combined += decodePDFString(sm2[1]);
+          }
+          if (combined.trim().length > 1) textBlocks.push(combined.trim());
+        }
+      } catch (e) {
+        // Not a valid zlib stream, skip
+      }
+    }
+  } catch (e) {
+    // zlib not available or error, continue with what we have
+  }
+
+  return textBlocks;
+}
+
+function decodePDFString(str) {
+  // Decode PDF escape sequences
+  return str
+    .replace(/\\n/g, '\n')
+    .replace(/\\r/g, '\r')
+    .replace(/\\t/g, '\t')
+    .replace(/\\\(/g, '(')
+    .replace(/\\\)/g, ')')
+    .replace(/\\\\/g, '\\')
+    .replace(/\\(\d{3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)));
+}
+
+function parsePDFOrders(textBlocks) {
+  const orders = [];
+  const fullText = textBlocks.join('\n');
+  const lines = fullText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+  // Strategy 1: Look for tracking number patterns and group nearby text
+  const trackingPatterns = [
+    /\b(JT\d{10,13})\b/gi,      // J&T
+    /\b(JP\d{10,13})\b/gi,      // J&T alternative
+    /\b(JNE\w{10,15})\b/gi,     // JNE
+    /\b(SPRN\d{10,15})\b/gi,    // SPX Express
+    /\b(ID\d{10,15})\b/gi,      // ID Express
+    /\b(\d{12,16})\b/g,         // Generic long number (order/resi)
+    /\b([A-Z]{2,4}\d{8,15})\b/g // Generic courier format
+  ];
+
+  // Strategy 2: Try to find structured label data
+  // TikTok Shop labels typically have: tracking number, name, phone, address
+  
+  const phoneRegex = /\b(0\d{9,12})\b/g;
+  const orderIdRegex = /\b(\d{15,20})\b/g;
+  
+  // Find all tracking numbers in full text
+  const trackingNumbers = new Set();
+  const allText = textBlocks.join(' ');
+  
+  for (const pattern of trackingPatterns) {
+    let m;
+    while ((m = pattern.exec(allText)) !== null) {
+      if (m[1].length >= 10 && m[1].length <= 20) {
+        trackingNumbers.add(m[1]);
+      }
+    }
+  }
+
+  // If we found tracking numbers, try to extract order blocks
+  if (trackingNumbers.size > 0) {
+    // Group text blocks into "pages" or "labels" 
+    // Each label in a PDF resi typically represents one order
+    const labels = splitIntoLabels(textBlocks);
+    
+    for (const label of labels) {
+      const order = extractOrderFromLabel(label);
+      if (order && (order.resiNumber || order.buyerName)) {
+        orders.push(order);
+      }
+    }
+  }
+
+  // Strategy 3: If structured extraction failed, try line-by-line pattern matching
+  if (orders.length === 0 && textBlocks.length > 5) {
+    const singleOrder = extractOrderFromLabel(textBlocks);
+    if (singleOrder && (singleOrder.resiNumber || singleOrder.buyerName)) {
+      orders.push(singleOrder);
+    }
+  }
+
+  return orders;
+}
+
+function splitIntoLabels(textBlocks) {
+  // Try to detect boundaries between labels in multi-label PDF
+  const labels = [];
+  let currentLabel = [];
+  let labelCount = 0;
+  
+  // Common patterns that indicate start of a new label
+  const labelStartPatterns = [
+    /shipping\s*label/i,
+    /nomor\s*resi/i,
+    /tracking/i,
+    /halaman\s*\d/i,
+    /page\s*\d/i
+  ];
+  
+  // Simple heuristic: if text blocks repeat a similar pattern, split them
+  // For TikTok Shop labels, each label has roughly same structure
+  const fullJoin = textBlocks.join('|||');
+  
+  // If few text blocks, treat all as one label
+  if (textBlocks.length <= 30) {
+    return [textBlocks];
+  }
+  
+  // Try to find repeating tracking numbers as boundaries
+  const trackingRegex = /\b([A-Z]{1,4}\d{8,15})\b/;
+  let trackingCount = 0;
+  
+  for (let i = 0; i < textBlocks.length; i++) {
+    const block = textBlocks[i];
+    
+    if (trackingRegex.test(block) && currentLabel.length > 3) {
+      // Potential new label boundary
+      if (currentLabel.length > 0) {
+        labels.push([...currentLabel]);
+        currentLabel = [];
+      }
+    }
+    currentLabel.push(block);
+  }
+  
+  if (currentLabel.length > 0) {
+    labels.push(currentLabel);
+  }
+  
+  // If splitting didn't work well, return all as one
+  if (labels.length === 0) {
+    labels.push(textBlocks);
+  }
+  
+  return labels;
+}
+
+function extractOrderFromLabel(blocks) {
+  const text = blocks.join(' ');
+  const lines = blocks;
+  
+  const order = {
+    orderNumber: '',
+    resiNumber: '',
+    buyerName: '',
+    buyerPhone: '',
+    buyerAddress: '',
+    buyerCity: '',
+    buyerProvince: '',
+    buyerPostalCode: '',
+    courier: '',
+    productName: '',
+    sku: '',
+    quantity: 1,
+    weight: 0.5
+  };
+
+  // Extract tracking/resi number (various courier formats)
+  const resiPatterns = [
+    /\b(JT\d{10,13})\b/i,
+    /\b(JP\d{10,13})\b/i,
+    /\b(JNE\w{10,15})\b/i,
+    /\b(SPRN\d{10,15})\b/i,
+    /\b(SPX\w{10,15})\b/i,
+    /\b(ID\d{10,15})\b/i,
+    /\b(SIC\w{10,15})\b/i,
+    /\b(ANT\w{10,15})\b/i,
+  ];
+  
+  for (const pat of resiPatterns) {
+    const m = text.match(pat);
+    if (m) { order.resiNumber = m[1]; break; }
+  }
+
+  // Extract order number (TikTok order IDs are usually 15-20 digits)
+  const orderMatch = text.match(/\b(\d{15,20})\b/);
+  if (orderMatch) order.orderNumber = orderMatch[1];
+
+  // Extract phone number
+  const phoneMatch = text.match(/\b(08\d{8,12})\b/) || text.match(/\b(62\d{9,12})\b/) || text.match(/\b(0\d{9,12})\b/);
+  if (phoneMatch) order.buyerPhone = phoneMatch[1];
+
+  // Detect courier from text
+  const courierMap = {
+    'j&t': 'J&T Express', 'jnt': 'J&T Express', 'j & t': 'J&T Express',
+    'jne': 'JNE', 'sicepat': 'SiCepat', 'si cepat': 'SiCepat',
+    'anteraja': 'Anteraja', 'ninja': 'Ninja Express',
+    'id express': 'ID Express', 'spx': 'SPX Express', 'shopee': 'SPX Express'
+  };
+  const lowerText = text.toLowerCase();
+  for (const [key, val] of Object.entries(courierMap)) {
+    if (lowerText.includes(key)) { order.courier = val; break; }
+  }
+  // Also detect from resi prefix
+  if (!order.courier && order.resiNumber) {
+    if (order.resiNumber.startsWith('JT') || order.resiNumber.startsWith('JP')) order.courier = 'J&T Express';
+    else if (order.resiNumber.startsWith('JNE')) order.courier = 'JNE';
+    else if (order.resiNumber.startsWith('SIC')) order.courier = 'SiCepat';
+    else if (order.resiNumber.startsWith('SPX') || order.resiNumber.startsWith('SPRN')) order.courier = 'SPX Express';
+    else if (order.resiNumber.startsWith('ID')) order.courier = 'ID Express';
+    else if (order.resiNumber.startsWith('ANT')) order.courier = 'Anteraja';
+  }
+
+  // Extract postal code
+  const postalMatch = text.match(/\b(\d{5})\b/);
+  if (postalMatch) order.buyerPostalCode = postalMatch[1];
+
+  // Extract weight
+  const weightMatch = text.match(/(\d+[.,]?\d*)\s*(?:kg|gram|gr|g)/i);
+  if (weightMatch) {
+    let w = parseFloat(weightMatch[1].replace(',', '.'));
+    if (w > 100) w = w / 1000; // gram to kg
+    order.weight = w;
+  }
+
+  // Extract quantity
+  const qtyMatch = text.match(/(?:qty|jumlah|x)\s*[:=]?\s*(\d+)/i) || text.match(/(\d+)\s*(?:pcs|buah|unit)/i);
+  if (qtyMatch) order.quantity = parseInt(qtyMatch[1]);
+
+  // Try to extract name (heuristic: text block that looks like a name)
+  // Names typically appear near phone numbers and addresses
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    // Name heuristic: 2-4 words, capitalized, no numbers (except at boundaries)
+    if (/^[A-Z][a-z]+ [A-Z][a-z]+/.test(line) && line.length < 40 && !/\d{3,}/.test(line)) {
+      if (!order.buyerName) order.buyerName = line;
+    }
+    // Indonesian name patterns
+    if (/^[A-Za-z]{2,}\s[A-Za-z]{2,}/.test(line) && line.length >= 4 && line.length < 35 
+        && !/jl|jln|kota|prov|kec|kel|rt|rw|no\.|kode/i.test(line)
+        && !/express|shop|toko|pengir|pesan/i.test(line)) {
+      if (!order.buyerName) order.buyerName = line;
+    }
+  }
+
+  // Try to extract address (text with Jl./Jln/RT/RW/No. patterns)
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/(?:jl|jln|jalan|gang|gg|komp|perum|rt|rw|blok|desa|kel|kec)/i.test(line) && line.length > 10
+        && !/no\.\s*resi/i.test(line) && !/tracking/i.test(line)) {
+      order.buyerAddress = (order.buyerAddress ? order.buyerAddress + ', ' : '') + line;
+    }
+  }
+
+  // Extract city/province from common patterns
+  const provinces = ['jawa barat','jawa tengah','jawa timur','dki jakarta','banten','bali',
+    'sumatera utara','sumatera barat','sumatera selatan','kalimantan','sulawesi','yogyakarta',
+    'lampung','riau','jambi','bengkulu','papua','ntt','ntb','maluku','aceh','gorontalo'];
+  for (const prov of provinces) {
+    if (lowerText.includes(prov)) { order.buyerProvince = prov.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '); break; }
+  }
+
+  // Look for product/SKU
+  const skuMatch = text.match(/SKU[\s:]*([A-Za-z0-9_-]{3,20})/i) || text.match(/\b([A-Z]{2,5}-[A-Z]{2,5}-\d{2,5})\b/) || text.match(/\b([A-Z]{2,5}-\d{2,5})\b/);
+  if (skuMatch) order.sku = skuMatch[1];
+
+  return order;
+}
+
 // ==================== HELPER FUNCTIONS ====================
 function parseBody(req) {
   return new Promise((resolve, reject) => {
@@ -360,15 +735,15 @@ async function handleRequest(req, res) {
         const rows = parseCSV(content);
         parsedOrders = mapTikTokCSVToOrders(rows);
       } else if (ext === '.pdf') {
-        // For PDF, we extract text-like content (basic approach)
-        // In production, you'd use a PDF parser library
-        const content = file.data.toString('utf8');
-        // Try to find CSV-like content in PDF
-        const textContent = content.replace(/[^\x20-\x7E\n\r\t]/g, ' ').replace(/\s+/g, ' ');
-        return sendJSON(res, { 
-          success: false, 
-          message: 'Format PDF belum didukung sepenuhnya. Silakan export dari TikTok Shop sebagai CSV/Excel terlebih dahulu.' 
-        }, 400);
+        const textBlocks = extractPDFText(file.data);
+        parsedOrders = parsePDFOrders(textBlocks);
+        
+        if (parsedOrders.length === 0) {
+          return sendJSON(res, { 
+            success: false, 
+            message: 'Tidak dapat membaca data pesanan dari PDF. Pastikan PDF berisi data resi/label TikTok Shop. Jika gagal, gunakan format CSV.' 
+          }, 400);
+        }
       } else {
         return sendJSON(res, { success: false, message: 'Format file tidak didukung. Gunakan CSV.' }, 400);
       }
