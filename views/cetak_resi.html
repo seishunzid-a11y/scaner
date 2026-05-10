@@ -18,27 +18,48 @@
   </nav>
 
   <div class="container no-print">
-    <h2>Cetak Resi TikTok Shop</h2>
+    <h2>Cetak Resi Pengiriman</h2>
 
+    <!-- Select from uploaded orders -->
     <div class="card">
-      <h3>Input Data Pengiriman</h3>
-      <form id="resiForm">
+      <h3>📋 Pilih Pesanan untuk Dicetak</h3>
+      <p class="card-desc">Pilih dari pesanan yang sudah di-upload atau yang sudah dipacking.</p>
+      
+      <div class="filter-row" style="margin-bottom:12px;">
+        <button class="filter-btn active" onclick="filterResiOrders('all')" id="rFilterAll">Semua</button>
+        <button class="filter-btn" onclick="filterResiOrders('packed')" id="rFilterPacked">✅ Sudah Packing</button>
+        <button class="filter-btn" onclick="filterResiOrders('pending')" id="rFilterPending">⏳ Belum Packing</button>
+      </div>
+
+      <div class="search-box" style="margin-bottom:12px;">
+        <input type="text" id="orderSearch" placeholder="Cari no. pesanan, resi, atau nama pembeli..." oninput="searchResiOrders()">
+      </div>
+
+      <div id="resiOrderList">
+        <p class="loading">Memuat pesanan...</p>
+      </div>
+    </div>
+
+    <!-- Manual Input (optional) -->
+    <details class="card">
+      <summary class="details-toggle"><h3 style="display:inline;">✏️ Input Manual (tanpa upload)</h3></summary>
+      <form id="manualResiForm" style="margin-top:16px;">
         <div class="form-section">
           <h4>📋 Info Pesanan</h4>
           <div class="form-row">
             <div class="form-group">
-              <label>No. Pesanan TikTok</label>
-              <input type="text" id="orderNumber" placeholder="Contoh: 123456789012" required>
+              <label>No. Pesanan</label>
+              <input type="text" id="mOrderNumber" placeholder="No. pesanan TikTok">
             </div>
             <div class="form-group">
               <label>No. Resi</label>
-              <input type="text" id="resiNumber" placeholder="Contoh: JT1234567890" required>
+              <input type="text" id="mResiNumber" placeholder="No. resi pengiriman" required>
             </div>
           </div>
           <div class="form-row">
             <div class="form-group">
               <label>Kurir</label>
-              <select id="courier">
+              <select id="mCourier">
                 <option value="J&T Express">J&T Express</option>
                 <option value="JNE">JNE</option>
                 <option value="SiCepat">SiCepat</option>
@@ -50,26 +71,26 @@
             </div>
             <div class="form-group">
               <label>Berat (kg)</label>
-              <input type="number" id="weight" value="0.5" min="0.1" step="0.1">
+              <input type="number" id="mWeight" value="0.5" min="0.1" step="0.1">
             </div>
           </div>
         </div>
 
         <div class="form-section">
           <h4>🏪 Pengirim (Toko)</h4>
-          <div class="form-group">
-            <label>Nama Toko</label>
-            <input type="text" id="shopName" value="TikTok Shop" placeholder="Nama toko Anda">
-          </div>
           <div class="form-row">
             <div class="form-group">
+              <label>Nama Toko</label>
+              <input type="text" id="mShopName" value="TikTok Shop">
+            </div>
+            <div class="form-group">
               <label>No. Telepon Toko</label>
-              <input type="text" id="shopPhone" placeholder="08xxxxxxxxxx">
+              <input type="text" id="mShopPhone" placeholder="08xxxxxxxxxx">
             </div>
           </div>
           <div class="form-group">
             <label>Alamat Toko</label>
-            <textarea id="shopAddress" placeholder="Alamat lengkap toko"></textarea>
+            <textarea id="mShopAddress" placeholder="Alamat toko pengirim"></textarea>
           </div>
         </div>
 
@@ -78,29 +99,29 @@
           <div class="form-row">
             <div class="form-group">
               <label>Nama Pembeli</label>
-              <input type="text" id="buyerName" required placeholder="Nama pembeli">
+              <input type="text" id="mBuyerName" required>
             </div>
             <div class="form-group">
               <label>No. Telepon</label>
-              <input type="text" id="buyerPhone" required placeholder="08xxxxxxxxxx">
+              <input type="text" id="mBuyerPhone" required>
             </div>
           </div>
           <div class="form-group">
             <label>Alamat Lengkap</label>
-            <textarea id="buyerAddress" required placeholder="Alamat lengkap penerima"></textarea>
+            <textarea id="mBuyerAddress" required></textarea>
           </div>
           <div class="form-row">
             <div class="form-group">
               <label>Kota</label>
-              <input type="text" id="buyerCity" placeholder="Kota/Kabupaten">
+              <input type="text" id="mBuyerCity">
             </div>
             <div class="form-group">
               <label>Provinsi</label>
-              <input type="text" id="buyerProvince" placeholder="Provinsi">
+              <input type="text" id="mBuyerProvince">
             </div>
             <div class="form-group">
               <label>Kode Pos</label>
-              <input type="text" id="buyerPostalCode" placeholder="Kode pos">
+              <input type="text" id="mBuyerPostalCode">
             </div>
           </div>
         </div>
@@ -110,36 +131,21 @@
           <div class="form-row">
             <div class="form-group">
               <label>Nama Produk</label>
-              <input type="text" id="productName" placeholder="Nama produk yang dikirim">
+              <input type="text" id="mProductName">
             </div>
             <div class="form-group">
               <label>Jumlah</label>
-              <input type="number" id="quantity" value="1" min="1">
+              <input type="number" id="mQuantity" value="1" min="1">
             </div>
           </div>
-          <div class="form-group">
-            <label>Catatan</label>
-            <textarea id="notes" placeholder="Catatan tambahan (opsional)"></textarea>
-          </div>
         </div>
 
-        <div class="form-actions">
-          <button type="submit" class="btn btn-primary btn-large">💾 Simpan & Preview Resi</button>
-          <button type="button" class="btn btn-secondary" onclick="resetForm()">🔄 Reset</button>
-        </div>
+        <button type="submit" class="btn btn-primary btn-large">🖨️ Preview & Cetak Resi</button>
       </form>
-    </div>
-
-    <!-- Daftar Resi Tersimpan -->
-    <div class="card">
-      <h3>Resi Tersimpan</h3>
-      <div id="orderList">
-        <p class="loading">Memuat data...</p>
-      </div>
-    </div>
+    </details>
   </div>
 
-  <!-- PRINT AREA - Resi Template -->
+  <!-- PRINT AREA -->
   <div id="printArea" class="print-only" style="display:none;">
     <div class="resi-container">
       <div class="resi-header">
@@ -148,7 +154,7 @@
           <span class="tiktok-badge">TikTok Shop</span>
         </div>
         <div class="resi-barcode">
-          <div class="barcode-text" id="printResiNumber">JT1234567890</div>
+          <div class="barcode-text" id="printResiNumber">-</div>
           <div class="barcode-visual" id="printBarcode"></div>
         </div>
       </div>
@@ -176,26 +182,10 @@
 
         <div class="resi-section order-info">
           <table class="resi-table">
-            <tr>
-              <td><strong>No. Pesanan:</strong></td>
-              <td id="printOrderNumber">-</td>
-            </tr>
-            <tr>
-              <td><strong>Produk:</strong></td>
-              <td id="printProductName">-</td>
-            </tr>
-            <tr>
-              <td><strong>Jumlah:</strong></td>
-              <td id="printQuantity">-</td>
-            </tr>
-            <tr>
-              <td><strong>Berat:</strong></td>
-              <td id="printWeight">-</td>
-            </tr>
-            <tr>
-              <td><strong>Catatan:</strong></td>
-              <td id="printNotes">-</td>
-            </tr>
+            <tr><td><strong>No. Pesanan:</strong></td><td id="printOrderNumber">-</td></tr>
+            <tr><td><strong>Produk:</strong></td><td id="printProductName">-</td></tr>
+            <tr><td><strong>Jumlah:</strong></td><td id="printQuantity">-</td></tr>
+            <tr><td><strong>Berat:</strong></td><td id="printWeight">-</td></tr>
           </table>
         </div>
       </div>
@@ -207,73 +197,120 @@
   </div>
 
   <script>
+    let allResiOrders = [];
+    let currentResiFilter = 'all';
+
     function toggleNav() {
       document.querySelector('.nav-links').classList.toggle('show');
     }
 
-    document.getElementById('resiForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      
-      const payload = {
-        orderNumber: document.getElementById('orderNumber').value,
-        resiNumber: document.getElementById('resiNumber').value,
-        courier: document.getElementById('courier').value,
-        weight: document.getElementById('weight').value,
-        shopName: document.getElementById('shopName').value,
-        shopPhone: document.getElementById('shopPhone').value,
-        shopAddress: document.getElementById('shopAddress').value,
-        buyerName: document.getElementById('buyerName').value,
-        buyerPhone: document.getElementById('buyerPhone').value,
-        buyerAddress: document.getElementById('buyerAddress').value,
-        buyerCity: document.getElementById('buyerCity').value,
-        buyerProvince: document.getElementById('buyerProvince').value,
-        buyerPostalCode: document.getElementById('buyerPostalCode').value,
-        productName: document.getElementById('productName').value,
-        quantity: document.getElementById('quantity').value,
-        notes: document.getElementById('notes').value
-      };
-
+    // Load orders for printing
+    async function loadResiOrders() {
       try {
-        const res = await fetch('/api/orders', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
+        const res = await fetch('/api/orders');
         const data = await res.json();
-
-        if (data.success) {
-          previewResi(data.data);
-          loadOrders();
-        } else {
-          alert('Gagal menyimpan: ' + (data.message || ''));
-        }
+        allResiOrders = data.data.reverse();
+        renderResiOrders(allResiOrders);
       } catch (err) {
-        alert('Terjadi kesalahan.');
+        document.getElementById('resiOrderList').innerHTML = '<p class="error">Gagal memuat pesanan.</p>';
       }
-    });
+    }
 
-    function previewResi(order) {
-      document.getElementById('printCourier').textContent = order.courier;
-      document.getElementById('printResiNumber').textContent = order.resiNumber;
-      document.getElementById('printShopName').textContent = order.shopName;
-      document.getElementById('printShopPhone').textContent = order.shopPhone;
-      document.getElementById('printShopAddress').textContent = order.shopAddress;
-      document.getElementById('printBuyerName').textContent = order.buyerName;
-      document.getElementById('printBuyerPhone').textContent = order.buyerPhone;
-      document.getElementById('printBuyerAddress').textContent = order.buyerAddress;
-      document.getElementById('printBuyerCityProv').textContent = `${order.buyerCity}, ${order.buyerProvince}`;
-      document.getElementById('printBuyerPostal').textContent = order.buyerPostalCode ? ` ${order.buyerPostalCode}` : '';
-      document.getElementById('printOrderNumber').textContent = order.orderNumber;
-      document.getElementById('printProductName').textContent = order.productName;
-      document.getElementById('printQuantity').textContent = order.quantity + ' pcs';
-      document.getElementById('printWeight').textContent = order.weight + ' kg';
-      document.getElementById('printNotes').textContent = order.notes || '-';
+    function filterResiOrders(status) {
+      currentResiFilter = status;
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      if (status === 'all') document.getElementById('rFilterAll').classList.add('active');
+      else if (status === 'packed') document.getElementById('rFilterPacked').classList.add('active');
+      else document.getElementById('rFilterPending').classList.add('active');
+      
+      const filtered = status === 'all' ? allResiOrders : allResiOrders.filter(o => o.status === status);
+      renderResiOrders(filtered);
+    }
+
+    function searchResiOrders() {
+      const q = document.getElementById('orderSearch').value.toLowerCase();
+      let filtered = currentResiFilter === 'all' ? allResiOrders : allResiOrders.filter(o => o.status === currentResiFilter);
+      if (q) {
+        filtered = filtered.filter(o =>
+          (o.orderNumber || '').toLowerCase().includes(q) ||
+          (o.resiNumber || '').toLowerCase().includes(q) ||
+          (o.buyerName || '').toLowerCase().includes(q)
+        );
+      }
+      renderResiOrders(filtered);
+    }
+
+    function renderResiOrders(orders) {
+      const container = document.getElementById('resiOrderList');
+      if (orders.length === 0) {
+        container.innerHTML = '<p class="empty">Tidak ada pesanan. Upload file CSV dari TikTok Shop terlebih dahulu.</p>';
+        return;
+      }
+
+      let html = `<div class="table-wrapper"><table class="table">
+        <thead><tr>
+          <th>No. Pesanan</th>
+          <th>No. Resi</th>
+          <th>Pembeli</th>
+          <th>Alamat</th>
+          <th>Produk</th>
+          <th>Kurir</th>
+          <th>Status</th>
+          <th>Aksi</th>
+        </tr></thead><tbody>`;
+
+      orders.forEach(o => {
+        let statusBadge = o.status === 'packed' 
+          ? '<span class="badge stock-ok">✅ Packed</span>' 
+          : '<span class="badge stock-medium">⏳ Pending</span>';
+
+        const shortAddr = (o.buyerAddress || '').substring(0, 40) + ((o.buyerAddress || '').length > 40 ? '...' : '');
+
+        html += `<tr>
+          <td><code>${o.orderNumber || '-'}</code></td>
+          <td><code>${o.resiNumber || '-'}</code></td>
+          <td>${o.buyerName || '-'}<br><small>${o.buyerPhone || ''}</small></td>
+          <td><small>${shortAddr || '-'}</small></td>
+          <td>${o.productName || '-'} (${o.quantity || 1})</td>
+          <td>${o.courier || '-'}</td>
+          <td>${statusBadge}</td>
+          <td>
+            <button class="btn btn-sm btn-primary" onclick="cetakResi('${o.id}')">🖨️ Cetak</button>
+          </td>
+        </tr>`;
+      });
+
+      html += '</tbody></table></div>';
+      container.innerHTML = html;
+    }
+
+    // Print resi from order data
+    function cetakResi(orderId) {
+      const order = allResiOrders.find(o => o.id === orderId);
+      if (!order) { alert('Pesanan tidak ditemukan.'); return; }
+      showPrintPreview(order);
+    }
+
+    function showPrintPreview(data) {
+      document.getElementById('printCourier').textContent = data.courier || 'Kurir';
+      document.getElementById('printResiNumber').textContent = data.resiNumber || '-';
+      document.getElementById('printShopName').textContent = data.shopName || 'TikTok Shop';
+      document.getElementById('printShopPhone').textContent = data.shopPhone || '-';
+      document.getElementById('printShopAddress').textContent = data.shopAddress || '-';
+      document.getElementById('printBuyerName').textContent = data.buyerName || '-';
+      document.getElementById('printBuyerPhone').textContent = data.buyerPhone || '-';
+      document.getElementById('printBuyerAddress').textContent = data.buyerAddress || '-';
+      document.getElementById('printBuyerCityProv').textContent = 
+        [data.buyerCity, data.buyerProvince].filter(Boolean).join(', ') || '-';
+      document.getElementById('printBuyerPostal').textContent = data.buyerPostalCode ? ` ${data.buyerPostalCode}` : '';
+      document.getElementById('printOrderNumber').textContent = data.orderNumber || '-';
+      document.getElementById('printProductName').textContent = data.productName || '-';
+      document.getElementById('printQuantity').textContent = (data.quantity || 1) + ' pcs';
+      document.getElementById('printWeight').textContent = (data.weight || 0.5) + ' kg';
       document.getElementById('printDate').textContent = new Date().toLocaleString('id-ID');
 
-      // Generate simple barcode visual
-      generateBarcode(order.resiNumber);
+      generateBarcode(data.resiNumber || '000000');
 
-      // Show print area and print
       document.getElementById('printArea').style.display = 'block';
       setTimeout(() => window.print(), 300);
     }
@@ -281,7 +318,7 @@
     function generateBarcode(text) {
       const container = document.getElementById('printBarcode');
       let bars = '';
-      for (let i = 0; i < text.length * 3; i++) {
+      for (let i = 0; i < Math.max(text.length * 3, 30); i++) {
         const width = Math.random() > 0.5 ? 2 : 1;
         const isBar = i % 2 === 0;
         bars += `<span style="display:inline-block;width:${width}px;height:40px;background:${isBar ? '#000' : '#fff'};"></span>`;
@@ -289,73 +326,41 @@
       container.innerHTML = bars;
     }
 
-    function printResi(orderId) {
-      fetch('/api/orders')
-        .then(res => res.json())
-        .then(data => {
-          const order = data.data.find(o => o.id === orderId);
-          if (order) previewResi(order);
-        });
-    }
+    // Manual form submit
+    document.getElementById('manualResiForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const data = {
+        orderNumber: document.getElementById('mOrderNumber').value,
+        resiNumber: document.getElementById('mResiNumber').value,
+        courier: document.getElementById('mCourier').value,
+        weight: document.getElementById('mWeight').value,
+        shopName: document.getElementById('mShopName').value,
+        shopPhone: document.getElementById('mShopPhone').value,
+        shopAddress: document.getElementById('mShopAddress').value,
+        buyerName: document.getElementById('mBuyerName').value,
+        buyerPhone: document.getElementById('mBuyerPhone').value,
+        buyerAddress: document.getElementById('mBuyerAddress').value,
+        buyerCity: document.getElementById('mBuyerCity').value,
+        buyerProvince: document.getElementById('mBuyerProvince').value,
+        buyerPostalCode: document.getElementById('mBuyerPostalCode').value,
+        productName: document.getElementById('mProductName').value,
+        quantity: document.getElementById('mQuantity').value
+      };
+      showPrintPreview(data);
+    });
 
-    async function deleteOrder(id) {
-      if (!confirm('Hapus data resi ini?')) return;
-      await fetch(`/api/orders/${id}`, { method: 'DELETE' });
-      loadOrders();
-    }
+    // Check if opened with ?print=orderId
+    const urlParams = new URLSearchParams(window.location.search);
+    const autoPrintId = urlParams.get('print');
 
-    async function loadOrders() {
-      try {
-        const res = await fetch('/api/orders');
-        const data = await res.json();
-        const container = document.getElementById('orderList');
-
-        if (data.data.length === 0) {
-          container.innerHTML = '<p class="empty">Belum ada resi tersimpan.</p>';
-          return;
-        }
-
-        let html = `<table class="table">
-          <thead>
-            <tr>
-              <th>No. Pesanan</th>
-              <th>No. Resi</th>
-              <th>Pembeli</th>
-              <th>Kurir</th>
-              <th>Tanggal</th>
-              <th>Aksi</th>
-            </tr>
-          </thead>
-          <tbody>`;
-
-        data.data.reverse().forEach(order => {
-          const date = new Date(order.createdAt).toLocaleDateString('id-ID');
-          html += `<tr>
-            <td><code>${order.orderNumber}</code></td>
-            <td><code>${order.resiNumber}</code></td>
-            <td>${order.buyerName}</td>
-            <td>${order.courier}</td>
-            <td>${date}</td>
-            <td class="actions">
-              <button class="btn btn-sm btn-primary" onclick="printResi('${order.id}')">🖨️ Cetak</button>
-              <button class="btn btn-sm btn-danger" onclick="deleteOrder('${order.id}')">🗑️</button>
-            </td>
-          </tr>`;
-        });
-
-        html += '</tbody></table>';
-        container.innerHTML = html;
-      } catch (err) {
-        document.getElementById('orderList').innerHTML = '<p class="error">Gagal memuat data.</p>';
+    async function init() {
+      await loadResiOrders();
+      if (autoPrintId) {
+        setTimeout(() => cetakResi(autoPrintId), 500);
       }
     }
 
-    function resetForm() {
-      document.getElementById('resiForm').reset();
-      document.getElementById('shopName').value = 'TikTok Shop';
-    }
-
-    loadOrders();
+    init();
   </script>
 </body>
 </html>

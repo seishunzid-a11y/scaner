@@ -20,21 +20,28 @@
   <div class="container">
     <h2>Scan Barang Keluar</h2>
 
+    <!-- Scan Section -->
     <div class="scan-section">
       <div class="card scan-card">
         <div class="scan-icon">📷</div>
         <h3>Scan Barcode / Input SKU</h3>
-        <p>Arahkan scanner ke barcode atau ketik SKU/barcode produk</p>
+        <p>Arahkan scanner ke barcode produk atau ketik SKU untuk mengeluarkan barang dari stok</p>
         
         <form id="scanForm">
           <div class="form-group">
             <input type="text" id="barcodeInput" placeholder="Scan atau ketik barcode/SKU..." 
                    autofocus autocomplete="off" class="scan-input">
           </div>
-          <div class="form-row">
+          <div class="form-row" style="align-items:flex-end;">
             <div class="form-group">
               <label>Jumlah</label>
               <input type="number" id="quantityInput" value="1" min="1" class="qty-input">
+            </div>
+            <div class="form-group">
+              <label>Link ke Pesanan (opsional)</label>
+              <select id="orderSelect">
+                <option value="">-- Tanpa pesanan --</option>
+              </select>
             </div>
             <button type="submit" class="btn btn-primary btn-large">📤 Scan Keluar</button>
           </div>
@@ -44,6 +51,19 @@
       </div>
     </div>
 
+    <!-- Pending Orders (to be packed) -->
+    <div class="card">
+      <div class="card-header-row">
+        <h3>⏳ Pesanan Belum Dipacking (<span id="pendingCount">0</span>)</h3>
+        <button class="btn btn-sm btn-secondary" onclick="loadPendingOrders()">🔄 Refresh</button>
+      </div>
+      <p class="card-desc">Scan SKU/barcode produk dari pesanan di bawah ini untuk mengeluarkan barang dan update status.</p>
+      <div id="pendingOrders">
+        <p class="loading">Memuat pesanan...</p>
+      </div>
+    </div>
+
+    <!-- Scan History Today -->
     <div class="card">
       <h3>Riwayat Scan Hari Ini</h3>
       <div id="scanHistory">
@@ -55,36 +75,104 @@
     </div>
   </div>
 
-  <!-- Sound effects -->
   <script>
+    let pendingOrdersList = [];
+
     function toggleNav() {
       document.querySelector('.nav-links').classList.toggle('show');
     }
 
     function playSound(type) {
-      // Simple beep using Web Audio API
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const oscillator = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
-      oscillator.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
-      
-      if (type === 'success') {
-        oscillator.frequency.value = 800;
-        gainNode.gain.value = 0.3;
-      } else {
-        oscillator.frequency.value = 300;
-        gainNode.gain.value = 0.5;
-      }
-      
-      oscillator.start();
-      setTimeout(() => oscillator.stop(), 150);
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        if (type === 'success') { oscillator.frequency.value = 800; gainNode.gain.value = 0.3; }
+        else { oscillator.frequency.value = 300; gainNode.gain.value = 0.5; }
+        oscillator.start();
+        setTimeout(() => oscillator.stop(), 150);
+      } catch(e) {}
     }
 
+    // Load pending orders
+    async function loadPendingOrders() {
+      try {
+        const res = await fetch('/api/orders?status=pending');
+        const data = await res.json();
+        pendingOrdersList = data.data;
+        document.getElementById('pendingCount').textContent = pendingOrdersList.length;
+
+        // Update order dropdown
+        const select = document.getElementById('orderSelect');
+        select.innerHTML = '<option value="">-- Tanpa pesanan --</option>';
+        pendingOrdersList.forEach(o => {
+          select.innerHTML += `<option value="${o.id}">${o.orderNumber || o.resiNumber} - ${o.buyerName} (${o.productName})</option>`;
+        });
+
+        // Render table
+        const container = document.getElementById('pendingOrders');
+        if (pendingOrdersList.length === 0) {
+          container.innerHTML = '<p class="empty">🎉 Semua pesanan sudah dipacking!</p>';
+          return;
+        }
+
+        let html = `<div class="table-wrapper"><table class="table">
+          <thead><tr>
+            <th>No. Pesanan</th>
+            <th>No. Resi</th>
+            <th>Pembeli</th>
+            <th>Produk</th>
+            <th>SKU</th>
+            <th>Qty</th>
+            <th>Kurir</th>
+            <th>Aksi</th>
+          </tr></thead><tbody>`;
+
+        pendingOrdersList.forEach(o => {
+          html += `<tr id="order-row-${o.id}">
+            <td><code>${o.orderNumber || '-'}</code></td>
+            <td><code>${o.resiNumber || '-'}</code></td>
+            <td>${o.buyerName || '-'}<br><small>${o.buyerPhone || ''}</small></td>
+            <td>${o.productName || '-'}</td>
+            <td><code class="sku-highlight">${o.sku || '-'}</code></td>
+            <td>${o.quantity || 1}</td>
+            <td>${o.courier || '-'}</td>
+            <td>
+              <button class="btn btn-sm btn-primary" onclick="quickScan('${o.sku || ''}', ${o.quantity || 1}, '${o.id}')" title="Scan & Pack">
+                📤 Scan
+              </button>
+            </td>
+          </tr>`;
+        });
+
+        html += '</tbody></table></div>';
+        container.innerHTML = html;
+      } catch (err) {
+        document.getElementById('pendingOrders').innerHTML = '<p class="error">Gagal memuat pesanan.</p>';
+      }
+    }
+
+    // Quick scan from order list
+    function quickScan(sku, qty, orderId) {
+      if (!sku || sku === '-') {
+        alert('Pesanan ini tidak punya SKU. Silakan scan manual.');
+        document.getElementById('barcodeInput').focus();
+        return;
+      }
+      document.getElementById('barcodeInput').value = sku;
+      document.getElementById('quantityInput').value = qty;
+      document.getElementById('orderSelect').value = orderId;
+      document.getElementById('scanForm').dispatchEvent(new Event('submit'));
+    }
+
+    // Scan form submit
     document.getElementById('scanForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const barcode = document.getElementById('barcodeInput').value.trim();
       const quantity = parseInt(document.getElementById('quantityInput').value) || 1;
+      const orderId = document.getElementById('orderSelect').value;
       const resultDiv = document.getElementById('scanResult');
 
       if (!barcode) return;
@@ -93,7 +181,7 @@
         const res = await fetch('/api/scan', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ barcode, quantity })
+          body: JSON.stringify({ barcode, quantity, orderId: orderId || null })
         });
         const data = await res.json();
 
@@ -107,10 +195,26 @@
             <div class="result-info">
               <strong>${data.data.product.name}</strong>
               <p>Keluar: ${quantity} pcs | Sisa stok: ${data.data.product.stock}</p>
+              ${orderId ? '<p><small>✅ Pesanan ditandai sudah dipacking</small></p>' : ''}
             </div>
           `;
+          
+          // Clear form
           document.getElementById('barcodeInput').value = '';
           document.getElementById('quantityInput').value = '1';
+          document.getElementById('orderSelect').value = '';
+
+          // Highlight packed row then remove
+          if (orderId) {
+            const row = document.getElementById('order-row-' + orderId);
+            if (row) {
+              row.style.background = '#d4edda';
+              row.style.transition = 'opacity 0.5s';
+              setTimeout(() => { row.style.opacity = '0.3'; }, 1000);
+              setTimeout(() => { loadPendingOrders(); }, 2000);
+            }
+          }
+
           loadHistory();
         } else {
           playSound('error');
@@ -129,24 +233,19 @@
         resultDiv.className = 'scan-result error';
         resultDiv.innerHTML = `
           <div class="result-icon">❌</div>
-          <div class="result-info">
-            <strong>Error</strong>
-            <p>Terjadi kesalahan koneksi.</p>
-          </div>
+          <div class="result-info"><strong>Error</strong><p>Terjadi kesalahan koneksi.</p></div>
         `;
       }
 
-      // Fokus kembali ke input
       document.getElementById('barcodeInput').focus();
     });
 
     async function loadHistory() {
       try {
-        const res = await fetch('/api/scan-history?limit=20');
+        const res = await fetch('/api/scan-history?limit=30');
         const data = await res.json();
         const container = document.getElementById('scanHistory');
         
-        // Filter today only
         const today = new Date().toISOString().split('T')[0];
         const todayScans = data.data.filter(s => s.scannedAt.startsWith(today));
 
@@ -158,7 +257,7 @@
           return;
         }
 
-        let html = '<table class="table"><thead><tr><th>Waktu</th><th>Produk</th><th>SKU</th><th>Qty</th><th>Sisa Stok</th></tr></thead><tbody>';
+        let html = '<div class="table-wrapper"><table class="table"><thead><tr><th>Waktu</th><th>Produk</th><th>SKU</th><th>Qty</th><th>Sisa Stok</th></tr></thead><tbody>';
         todayScans.forEach(scan => {
           const time = new Date(scan.scannedAt).toLocaleTimeString('id-ID');
           html += `<tr>
@@ -169,7 +268,7 @@
             <td>${scan.stockAfter}</td>
           </tr>`;
         });
-        html += '</tbody></table>';
+        html += '</tbody></table></div>';
         container.innerHTML = html;
       } catch (err) {
         document.getElementById('scanHistory').innerHTML = '<p class="error">Gagal memuat riwayat.</p>';
@@ -178,6 +277,7 @@
 
     // Auto-focus barcode input
     document.getElementById('barcodeInput').focus();
+    loadPendingOrders();
     loadHistory();
   </script>
 </body>
