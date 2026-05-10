@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - TikTok Shop Scanner</title>
+  <link rel="stylesheet" href="/public/css/style.css">
+</head>
+<body class="login-page">
+  <div class="login-container">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="logo">📦</div>
+        <h1>TikTok Shop Scanner</h1>
+        <p>Sistem Cetak Resi & Manajemen Stok</p>
+      </div>
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input type="text" id="username" name="username" required placeholder="Masukkan username">
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" required placeholder="Masukkan password">
+        </div>
+        <button type="submit" class="btn btn-primary btn-full">Login</button>
+        <div id="errorMsg" class="error-msg" style="display:none;"></div>
+      </form>
+      <div class="login-footer">
+        <small>Admin: admin / admin123 | Packing: packing / packing123</small>
+      </div>
+    </div>
+  </div>
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      const errorMsg = document.getElementById('errorMsg');
+      
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+          window.location.href = data.redirect;
+        } else {
+          errorMsg.textContent = data.message;
+          errorMsg.style.display = 'block';
+        }
+      } catch (err) {
+        errorMsg.textContent = 'Terjadi kesalahan. Coba lagi.';
+        errorMsg.style.display = 'block';
+      }
+    });
+  </script>
+</body>
+</html>

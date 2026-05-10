@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scan Barang Keluar - TikTok Shop Scanner</title>
+  <link rel="stylesheet" href="/public/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-brand">📦 TikTok Shop Scanner</div>
+    <div class="nav-links">
+      <a href="/packing/scan" class="active">Scan Barang</a>
+      <a href="/packing/resi">Cetak Resi</a>
+      <a href="/logout" class="btn-logout">Logout ({{userName}})</a>
+    </div>
+    <button class="nav-toggle" onclick="toggleNav()">☰</button>
+  </nav>
+
+  <div class="container">
+    <h2>Scan Barang Keluar</h2>
+
+    <div class="scan-section">
+      <div class="card scan-card">
+        <div class="scan-icon">📷</div>
+        <h3>Scan Barcode / Input SKU</h3>
+        <p>Arahkan scanner ke barcode atau ketik SKU/barcode produk</p>
+        
+        <form id="scanForm">
+          <div class="form-group">
+            <input type="text" id="barcodeInput" placeholder="Scan atau ketik barcode/SKU..." 
+                   autofocus autocomplete="off" class="scan-input">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Jumlah</label>
+              <input type="number" id="quantityInput" value="1" min="1" class="qty-input">
+            </div>
+            <button type="submit" class="btn btn-primary btn-large">📤 Scan Keluar</button>
+          </div>
+        </form>
+
+        <div id="scanResult" class="scan-result" style="display:none;"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Riwayat Scan Hari Ini</h3>
+      <div id="scanHistory">
+        <p class="loading">Memuat riwayat...</p>
+      </div>
+      <div class="scan-summary">
+        <p>Total scan hari ini: <strong id="todayCount">0</strong> | Total barang keluar: <strong id="todayItems">0</strong></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sound effects -->
+  <script>
+    function toggleNav() {
+      document.querySelector('.nav-links').classList.toggle('show');
+    }
+
+    function playSound(type) {
+      // Simple beep using Web Audio API
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      
+      if (type === 'success') {
+        oscillator.frequency.value = 800;
+        gainNode.gain.value = 0.3;
+      } else {
+        oscillator.frequency.value = 300;
+        gainNode.gain.value = 0.5;
+      }
+      
+      oscillator.start();
+      setTimeout(() => oscillator.stop(), 150);
+    }
+
+    document.getElementById('scanForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const barcode = document.getElementById('barcodeInput').value.trim();
+      const quantity = parseInt(document.getElementById('quantityInput').value) || 1;
+      const resultDiv = document.getElementById('scanResult');
+
+      if (!barcode) return;
+
+      try {
+        const res = await fetch('/api/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ barcode, quantity })
+        });
+        const data = await res.json();
+
+        resultDiv.style.display = 'block';
+
+        if (data.success) {
+          playSound('success');
+          resultDiv.className = 'scan-result success';
+          resultDiv.innerHTML = `
+            <div class="result-icon">✅</div>
+            <div class="result-info">
+              <strong>${data.data.product.name}</strong>
+              <p>Keluar: ${quantity} pcs | Sisa stok: ${data.data.product.stock}</p>
+            </div>
+          `;
+          document.getElementById('barcodeInput').value = '';
+          document.getElementById('quantityInput').value = '1';
+          loadHistory();
+        } else {
+          playSound('error');
+          resultDiv.className = 'scan-result error';
+          resultDiv.innerHTML = `
+            <div class="result-icon">❌</div>
+            <div class="result-info">
+              <strong>Gagal!</strong>
+              <p>${data.message}</p>
+            </div>
+          `;
+        }
+      } catch (err) {
+        playSound('error');
+        resultDiv.style.display = 'block';
+        resultDiv.className = 'scan-result error';
+        resultDiv.innerHTML = `
+          <div class="result-icon">❌</div>
+          <div class="result-info">
+            <strong>Error</strong>
+            <p>Terjadi kesalahan koneksi.</p>
+          </div>
+        `;
+      }
+
+      // Fokus kembali ke input
+      document.getElementById('barcodeInput').focus();
+    });
+
+    async function loadHistory() {
+      try {
+        const res = await fetch('/api/scan-history?limit=20');
+        const data = await res.json();
+        const container = document.getElementById('scanHistory');
+        
+        // Filter today only
+        const today = new Date().toISOString().split('T')[0];
+        const todayScans = data.data.filter(s => s.scannedAt.startsWith(today));
+
+        document.getElementById('todayCount').textContent = todayScans.length;
+        document.getElementById('todayItems').textContent = todayScans.reduce((sum, s) => sum + s.quantity, 0);
+
+        if (todayScans.length === 0) {
+          container.innerHTML = '<p class="empty">Belum ada scan hari ini.</p>';
+          return;
+        }
+
+        let html = '<table class="table"><thead><tr><th>Waktu</th><th>Produk</th><th>SKU</th><th>Qty</th><th>Sisa Stok</th></tr></thead><tbody>';
+        todayScans.forEach(scan => {
+          const time = new Date(scan.scannedAt).toLocaleTimeString('id-ID');
+          html += `<tr>
+            <td>${time}</td>
+            <td>${scan.productName}</td>
+            <td><code>${scan.sku}</code></td>
+            <td>${scan.quantity}</td>
+            <td>${scan.stockAfter}</td>
+          </tr>`;
+        });
+        html += '</tbody></table>';
+        container.innerHTML = html;
+      } catch (err) {
+        document.getElementById('scanHistory').innerHTML = '<p class="error">Gagal memuat riwayat.</p>';
+      }
+    }
+
+    // Auto-focus barcode input
+    document.getElementById('barcodeInput').focus();
+    loadHistory();
+  </script>
+</body>
+</html>

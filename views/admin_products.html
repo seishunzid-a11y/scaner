@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manajemen Produk - TikTok Shop Scanner</title>
+  <link rel="stylesheet" href="/public/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-brand">📦 TikTok Shop Scanner</div>
+    <div class="nav-links">
+      <a href="/admin/dashboard">Dashboard</a>
+      <a href="/admin/products" class="active">Produk</a>
+      <a href="/admin/reports">Laporan</a>
+      <a href="/admin/resi">Cetak Resi</a>
+      <a href="/logout" class="btn-logout">Logout ({{userName}})</a>
+    </div>
+    <button class="nav-toggle" onclick="toggleNav()">☰</button>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <h2>Manajemen Produk</h2>
+      <button class="btn btn-primary" onclick="showAddModal()">+ Tambah Produk</button>
+    </div>
+
+    <div class="card">
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Cari produk..." oninput="filterProducts()">
+      </div>
+      <div id="productList">
+        <p class="loading">Memuat data...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Tambah/Edit Produk -->
+  <div id="productModal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modalTitle">Tambah Produk</h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <form id="productForm">
+        <input type="hidden" id="productId">
+        <div class="form-row">
+          <div class="form-group">
+            <label>SKU / Kode Produk</label>
+            <input type="text" id="productSku" required placeholder="Contoh: SKU001">
+          </div>
+          <div class="form-group">
+            <label>Barcode</label>
+            <input type="text" id="productBarcode" placeholder="Barcode produk (opsional)">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Nama Produk</label>
+          <input type="text" id="productName" required placeholder="Nama produk">
+        </div>
+        <div class="form-group">
+          <label>Deskripsi</label>
+          <textarea id="productDescription" placeholder="Deskripsi produk (opsional)"></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Harga (Rp)</label>
+            <input type="number" id="productPrice" required placeholder="0" min="0">
+          </div>
+          <div class="form-group">
+            <label>Stok</label>
+            <input type="number" id="productStock" required placeholder="0" min="0">
+          </div>
+          <div class="form-group">
+            <label>Berat (kg)</label>
+            <input type="number" id="productWeight" placeholder="0.5" min="0" step="0.1">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" onclick="closeModal()">Batal</button>
+          <button type="submit" class="btn btn-primary">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    let allProducts = [];
+
+    function toggleNav() {
+      document.querySelector('.nav-links').classList.toggle('show');
+    }
+
+    async function loadProducts() {
+      try {
+        const res = await fetch('/api/products');
+        const data = await res.json();
+        allProducts = data.data;
+        renderProducts(allProducts);
+      } catch (err) {
+        document.getElementById('productList').innerHTML = '<p class="error">Gagal memuat data.</p>';
+      }
+    }
+
+    function renderProducts(products) {
+      const container = document.getElementById('productList');
+      if (products.length === 0) {
+        container.innerHTML = '<p class="empty">Belum ada produk. Klik "Tambah Produk" untuk menambah.</p>';
+        return;
+      }
+
+      let html = `<table class="table">
+        <thead>
+          <tr>
+            <th>SKU</th>
+            <th>Nama Produk</th>
+            <th>Harga</th>
+            <th>Stok</th>
+            <th>Berat</th>
+            <th>Barcode</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody>`;
+      
+      products.forEach(p => {
+        const stockClass = p.stock <= 5 ? 'stock-low' : (p.stock <= 20 ? 'stock-medium' : 'stock-ok');
+        html += `<tr>
+          <td><code>${p.sku}</code></td>
+          <td>${p.name}</td>
+          <td>Rp ${p.price.toLocaleString('id-ID')}</td>
+          <td><span class="badge ${stockClass}">${p.stock}</span></td>
+          <td>${p.weight} kg</td>
+          <td><code>${p.barcode || '-'}</code></td>
+          <td class="actions">
+            <button class="btn btn-sm btn-warning" onclick="editProduct('${p.id}')">Edit</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteProduct('${p.id}', '${p.name}')">Hapus</button>
+          </td>
+        </tr>`;
+      });
+      
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    function filterProducts() {
+      const query = document.getElementById('searchInput').value.toLowerCase();
+      const filtered = allProducts.filter(p => 
+        p.name.toLowerCase().includes(query) || 
+        p.sku.toLowerCase().includes(query) ||
+        (p.barcode && p.barcode.toLowerCase().includes(query))
+      );
+      renderProducts(filtered);
+    }
+
+    function showAddModal() {
+      document.getElementById('modalTitle').textContent = 'Tambah Produk';
+      document.getElementById('productForm').reset();
+      document.getElementById('productId').value = '';
+      document.getElementById('productModal').style.display = 'flex';
+    }
+
+    function editProduct(id) {
+      const product = allProducts.find(p => p.id === id);
+      if (!product) return;
+      
+      document.getElementById('modalTitle').textContent = 'Edit Produk';
+      document.getElementById('productId').value = product.id;
+      document.getElementById('productSku').value = product.sku;
+      document.getElementById('productBarcode').value = product.barcode || '';
+      document.getElementById('productName').value = product.name;
+      document.getElementById('productDescription').value = product.description || '';
+      document.getElementById('productPrice').value = product.price;
+      document.getElementById('productStock').value = product.stock;
+      document.getElementById('productWeight').value = product.weight;
+      document.getElementById('productModal').style.display = 'flex';
+    }
+
+    async function deleteProduct(id, name) {
+      if (!confirm(`Yakin hapus produk "${name}"?`)) return;
+      
+      try {
+        await fetch(`/api/products/${id}`, { method: 'DELETE' });
+        loadProducts();
+      } catch (err) {
+        alert('Gagal menghapus produk.');
+      }
+    }
+
+    function closeModal() {
+      document.getElementById('productModal').style.display = 'none';
+    }
+
+    document.getElementById('productForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('productId').value;
+      const payload = {
+        sku: document.getElementById('productSku').value,
+        barcode: document.getElementById('productBarcode').value || document.getElementById('productSku').value,
+        name: document.getElementById('productName').value,
+        description: document.getElementById('productDescription').value,
+        price: document.getElementById('productPrice').value,
+        stock: document.getElementById('productStock').value,
+        weight: document.getElementById('productWeight').value
+      };
+
+      try {
+        const url = id ? `/api/products/${id}` : '/api/products';
+        const method = id ? 'PUT' : 'POST';
+        
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+          closeModal();
+          loadProducts();
+        } else {
+          alert(data.message || 'Gagal menyimpan produk.');
+        }
+      } catch (err) {
+        alert('Terjadi kesalahan.');
+      }
+    });
+
+    // Close modal on outside click
+    document.getElementById('productModal').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('productModal')) closeModal();
+    });
+
+    loadProducts();
+  </script>
+</body>
+</html>

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Laporan Harian - TikTok Shop Scanner</title>
+  <link rel="stylesheet" href="/public/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-brand">📦 TikTok Shop Scanner</div>
+    <div class="nav-links">
+      <a href="/admin/dashboard">Dashboard</a>
+      <a href="/admin/products">Produk</a>
+      <a href="/admin/reports" class="active">Laporan</a>
+      <a href="/admin/resi">Cetak Resi</a>
+      <a href="/logout" class="btn-logout">Logout ({{userName}})</a>
+    </div>
+    <button class="nav-toggle" onclick="toggleNav()">☰</button>
+  </nav>
+
+  <div class="container">
+    <h2>Laporan Harian</h2>
+
+    <div class="card">
+      <div class="report-filter">
+        <div class="form-group">
+          <label>Pilih Tanggal:</label>
+          <input type="date" id="reportDate" onchange="loadReport()">
+        </div>
+        <button class="btn btn-primary" onclick="printReport()">🖨️ Cetak Laporan</button>
+      </div>
+    </div>
+
+    <div class="stats-grid" id="reportStats">
+      <div class="stat-card">
+        <div class="stat-icon">📤</div>
+        <div class="stat-info">
+          <h3 id="statTotalScans">0</h3>
+          <p>Total Scan</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">📦</div>
+        <div class="stat-info">
+          <h3 id="statTotalItems">0</h3>
+          <p>Total Barang Keluar</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="reportContent">
+      <h3>Detail Scan - <span id="reportDateLabel"></span></h3>
+      <div id="reportTable">
+        <p class="loading">Pilih tanggal untuk melihat laporan.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Laporan Stok Produk</h3>
+      <div id="stockReport">
+        <p class="loading">Memuat data stok...</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function toggleNav() {
+      document.querySelector('.nav-links').classList.toggle('show');
+    }
+
+    // Set default date to today
+    document.getElementById('reportDate').value = new Date().toISOString().split('T')[0];
+
+    async function loadReport() {
+      const date = document.getElementById('reportDate').value;
+      document.getElementById('reportDateLabel').textContent = new Date(date).toLocaleDateString('id-ID', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+      });
+
+      try {
+        const res = await fetch(`/api/reports/daily?date=${date}`);
+        const data = await res.json();
+        const report = data.data;
+
+        document.getElementById('statTotalScans').textContent = report.totalScans;
+        document.getElementById('statTotalItems').textContent = report.totalItemsOut;
+
+        const container = document.getElementById('reportTable');
+        if (report.scans.length === 0) {
+          container.innerHTML = '<p class="empty">Tidak ada data scan untuk tanggal ini.</p>';
+          return;
+        }
+
+        let html = `<table class="table">
+          <thead>
+            <tr>
+              <th>No</th>
+              <th>Waktu</th>
+              <th>Produk</th>
+              <th>SKU</th>
+              <th>Qty Keluar</th>
+              <th>Stok Sebelum</th>
+              <th>Stok Sesudah</th>
+              <th>Oleh</th>
+            </tr>
+          </thead>
+          <tbody>`;
+
+        report.scans.forEach((scan, i) => {
+          const time = new Date(scan.scannedAt).toLocaleTimeString('id-ID');
+          html += `<tr>
+            <td>${i + 1}</td>
+            <td>${time}</td>
+            <td>${scan.productName}</td>
+            <td><code>${scan.sku}</code></td>
+            <td>${scan.quantity}</td>
+            <td>${scan.stockBefore}</td>
+            <td>${scan.stockAfter}</td>
+            <td>${scan.scannedByName}</td>
+          </tr>`;
+        });
+
+        html += '</tbody></table>';
+        container.innerHTML = html;
+      } catch (err) {
+        document.getElementById('reportTable').innerHTML = '<p class="error">Gagal memuat laporan.</p>';
+      }
+    }
+
+    async function loadStockReport() {
+      try {
+        const res = await fetch('/api/reports/stock');
+        const data = await res.json();
+        const container = document.getElementById('stockReport');
+
+        if (data.data.length === 0) {
+          container.innerHTML = '<p class="empty">Belum ada produk.</p>';
+          return;
+        }
+
+        let html = `<table class="table">
+          <thead>
+            <tr>
+              <th>SKU</th>
+              <th>Nama Produk</th>
+              <th>Stok Saat Ini</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>`;
+
+        data.data.forEach(p => {
+          let status = '<span class="badge stock-ok">Aman</span>';
+          if (p.stock === 0) status = '<span class="badge stock-empty">Habis</span>';
+          else if (p.stock <= 5) status = '<span class="badge stock-low">Hampir Habis</span>';
+          else if (p.stock <= 20) status = '<span class="badge stock-medium">Menipis</span>';
+          
+          html += `<tr>
+            <td><code>${p.sku}</code></td>
+            <td>${p.name}</td>
+            <td><strong>${p.stock}</strong></td>
+            <td>${status}</td>
+          </tr>`;
+        });
+
+        html += '</tbody></table>';
+        container.innerHTML = html;
+      } catch (err) {
+        document.getElementById('stockReport').innerHTML = '<p class="error">Gagal memuat data stok.</p>';
+      }
+    }
+
+    function printReport() {
+      window.print();
+    }
+
+    loadReport();
+    loadStockReport();
+  </script>
+</body>
+</html>

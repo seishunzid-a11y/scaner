@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cetak Resi - TikTok Shop Scanner</title>
+  <link rel="stylesheet" href="/public/css/style.css">
+</head>
+<body>
+  <nav class="navbar no-print">
+    <div class="nav-brand">📦 TikTok Shop Scanner</div>
+    <div class="nav-links">
+      <a href="/packing/scan">Scan Barang</a>
+      <a href="/packing/resi" class="active">Cetak Resi</a>
+      <a href="/logout" class="btn-logout">Logout ({{userName}})</a>
+    </div>
+    <button class="nav-toggle" onclick="toggleNav()">☰</button>
+  </nav>
+
+  <div class="container no-print">
+    <h2>Cetak Resi TikTok Shop</h2>
+
+    <div class="card">
+      <h3>Input Data Pengiriman</h3>
+      <form id="resiForm">
+        <div class="form-section">
+          <h4>📋 Info Pesanan</h4>
+          <div class="form-row">
+            <div class="form-group">
+              <label>No. Pesanan TikTok</label>
+              <input type="text" id="orderNumber" placeholder="Contoh: 123456789012" required>
+            </div>
+            <div class="form-group">
+              <label>No. Resi</label>
+              <input type="text" id="resiNumber" placeholder="Contoh: JT1234567890" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Kurir</label>
+              <select id="courier">
+                <option value="J&T Express">J&T Express</option>
+                <option value="JNE">JNE</option>
+                <option value="SiCepat">SiCepat</option>
+                <option value="Anteraja">Anteraja</option>
+                <option value="Ninja Express">Ninja Express</option>
+                <option value="ID Express">ID Express</option>
+                <option value="SPX Express">SPX Express</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Berat (kg)</label>
+              <input type="number" id="weight" value="0.5" min="0.1" step="0.1">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h4>🏪 Pengirim (Toko)</h4>
+          <div class="form-group">
+            <label>Nama Toko</label>
+            <input type="text" id="shopName" value="TikTok Shop" placeholder="Nama toko Anda">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>No. Telepon Toko</label>
+              <input type="text" id="shopPhone" placeholder="08xxxxxxxxxx">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Alamat Toko</label>
+            <textarea id="shopAddress" placeholder="Alamat lengkap toko"></textarea>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h4>👤 Penerima (Pembeli)</h4>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Nama Pembeli</label>
+              <input type="text" id="buyerName" required placeholder="Nama pembeli">
+            </div>
+            <div class="form-group">
+              <label>No. Telepon</label>
+              <input type="text" id="buyerPhone" required placeholder="08xxxxxxxxxx">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Alamat Lengkap</label>
+            <textarea id="buyerAddress" required placeholder="Alamat lengkap penerima"></textarea>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Kota</label>
+              <input type="text" id="buyerCity" placeholder="Kota/Kabupaten">
+            </div>
+            <div class="form-group">
+              <label>Provinsi</label>
+              <input type="text" id="buyerProvince" placeholder="Provinsi">
+            </div>
+            <div class="form-group">
+              <label>Kode Pos</label>
+              <input type="text" id="buyerPostalCode" placeholder="Kode pos">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h4>📦 Info Produk</h4>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Nama Produk</label>
+              <input type="text" id="productName" placeholder="Nama produk yang dikirim">
+            </div>
+            <div class="form-group">
+              <label>Jumlah</label>
+              <input type="number" id="quantity" value="1" min="1">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Catatan</label>
+            <textarea id="notes" placeholder="Catatan tambahan (opsional)"></textarea>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary btn-large">💾 Simpan & Preview Resi</button>
+          <button type="button" class="btn btn-secondary" onclick="resetForm()">🔄 Reset</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Daftar Resi Tersimpan -->
+    <div class="card">
+      <h3>Resi Tersimpan</h3>
+      <div id="orderList">
+        <p class="loading">Memuat data...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRINT AREA - Resi Template -->
+  <div id="printArea" class="print-only" style="display:none;">
+    <div class="resi-container">
+      <div class="resi-header">
+        <div class="resi-logo">
+          <span class="courier-name" id="printCourier">J&T Express</span>
+          <span class="tiktok-badge">TikTok Shop</span>
+        </div>
+        <div class="resi-barcode">
+          <div class="barcode-text" id="printResiNumber">JT1234567890</div>
+          <div class="barcode-visual" id="printBarcode"></div>
+        </div>
+      </div>
+
+      <div class="resi-body">
+        <div class="resi-section sender">
+          <div class="section-label">PENGIRIM</div>
+          <div class="section-content">
+            <strong id="printShopName">TikTok Shop</strong><br>
+            <span id="printShopPhone">-</span><br>
+            <span id="printShopAddress">-</span>
+          </div>
+        </div>
+
+        <div class="resi-section receiver">
+          <div class="section-label">PENERIMA</div>
+          <div class="section-content">
+            <strong id="printBuyerName">-</strong><br>
+            <span id="printBuyerPhone">-</span><br>
+            <span id="printBuyerAddress">-</span><br>
+            <span id="printBuyerCityProv">-</span>
+            <span id="printBuyerPostal"></span>
+          </div>
+        </div>
+
+        <div class="resi-section order-info">
+          <table class="resi-table">
+            <tr>
+              <td><strong>No. Pesanan:</strong></td>
+              <td id="printOrderNumber">-</td>
+            </tr>
+            <tr>
+              <td><strong>Produk:</strong></td>
+              <td id="printProductName">-</td>
+            </tr>
+            <tr>
+              <td><strong>Jumlah:</strong></td>
+              <td id="printQuantity">-</td>
+            </tr>
+            <tr>
+              <td><strong>Berat:</strong></td>
+              <td id="printWeight">-</td>
+            </tr>
+            <tr>
+              <td><strong>Catatan:</strong></td>
+              <td id="printNotes">-</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="resi-footer">
+        <small>Dicetak: <span id="printDate">-</span></small>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function toggleNav() {
+      document.querySelector('.nav-links').classList.toggle('show');
+    }
+
+    document.getElementById('resiForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const payload = {
+        orderNumber: document.getElementById('orderNumber').value,
+        resiNumber: document.getElementById('resiNumber').value,
+        courier: document.getElementById('courier').value,
+        weight: document.getElementById('weight').value,
+        shopName: document.getElementById('shopName').value,
+        shopPhone: document.getElementById('shopPhone').value,
+        shopAddress: document.getElementById('shopAddress').value,
+        buyerName: document.getElementById('buyerName').value,
+        buyerPhone: document.getElementById('buyerPhone').value,
+        buyerAddress: document.getElementById('buyerAddress').value,
+        buyerCity: document.getElementById('buyerCity').value,
+        buyerProvince: document.getElementById('buyerProvince').value,
+        buyerPostalCode: document.getElementById('buyerPostalCode').value,
+        productName: document.getElementById('productName').value,
+        quantity: document.getElementById('quantity').value,
+        notes: document.getElementById('notes').value
+      };
+
+      try {
+        const res = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          previewResi(data.data);
+          loadOrders();
+        } else {
+          alert('Gagal menyimpan: ' + (data.message || ''));
+        }
+      } catch (err) {
+        alert('Terjadi kesalahan.');
+      }
+    });
+
+    function previewResi(order) {
+      document.getElementById('printCourier').textContent = order.courier;
+      document.getElementById('printResiNumber').textContent = order.resiNumber;
+      document.getElementById('printShopName').textContent = order.shopName;
+      document.getElementById('printShopPhone').textContent = order.shopPhone;
+      document.getElementById('printShopAddress').textContent = order.shopAddress;
+      document.getElementById('printBuyerName').textContent = order.buyerName;
+      document.getElementById('printBuyerPhone').textContent = order.buyerPhone;
+      document.getElementById('printBuyerAddress').textContent = order.buyerAddress;
+      document.getElementById('printBuyerCityProv').textContent = `${order.buyerCity}, ${order.buyerProvince}`;
+      document.getElementById('printBuyerPostal').textContent = order.buyerPostalCode ? ` ${order.buyerPostalCode}` : '';
+      document.getElementById('printOrderNumber').textContent = order.orderNumber;
+      document.getElementById('printProductName').textContent = order.productName;
+      document.getElementById('printQuantity').textContent = order.quantity + ' pcs';
+      document.getElementById('printWeight').textContent = order.weight + ' kg';
+      document.getElementById('printNotes').textContent = order.notes || '-';
+      document.getElementById('printDate').textContent = new Date().toLocaleString('id-ID');
+
+      // Generate simple barcode visual
+      generateBarcode(order.resiNumber);
+
+      // Show print area and print
+      document.getElementById('printArea').style.display = 'block';
+      setTimeout(() => window.print(), 300);
+    }
+
+    function generateBarcode(text) {
+      const container = document.getElementById('printBarcode');
+      let bars = '';
+      for (let i = 0; i < text.length * 3; i++) {
+        const width = Math.random() > 0.5 ? 2 : 1;
+        const isBar = i % 2 === 0;
+        bars += `<span style="display:inline-block;width:${width}px;height:40px;background:${isBar ? '#000' : '#fff'};"></span>`;
+      }
+      container.innerHTML = bars;
+    }
+
+    function printResi(orderId) {
+      fetch('/api/orders')
+        .then(res => res.json())
+        .then(data => {
+          const order = data.data.find(o => o.id === orderId);
+          if (order) previewResi(order);
+        });
+    }
+
+    async function deleteOrder(id) {
+      if (!confirm('Hapus data resi ini?')) return;
+      await fetch(`/api/orders/${id}`, { method: 'DELETE' });
+      loadOrders();
+    }
+
+    async function loadOrders() {
+      try {
+        const res = await fetch('/api/orders');
+        const data = await res.json();
+        const container = document.getElementById('orderList');
+
+        if (data.data.length === 0) {
+          container.innerHTML = '<p class="empty">Belum ada resi tersimpan.</p>';
+          return;
+        }
+
+        let html = `<table class="table">
+          <thead>
+            <tr>
+              <th>No. Pesanan</th>
+              <th>No. Resi</th>
+              <th>Pembeli</th>
+              <th>Kurir</th>
+              <th>Tanggal</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody>`;
+
+        data.data.reverse().forEach(order => {
+          const date = new Date(order.createdAt).toLocaleDateString('id-ID');
+          html += `<tr>
+            <td><code>${order.orderNumber}</code></td>
+            <td><code>${order.resiNumber}</code></td>
+            <td>${order.buyerName}</td>
+            <td>${order.courier}</td>
+            <td>${date}</td>
+            <td class="actions">
+              <button class="btn btn-sm btn-primary" onclick="printResi('${order.id}')">🖨️ Cetak</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteOrder('${order.id}')">🗑️</button>
+            </td>
+          </tr>`;
+        });
+
+        html += '</tbody></table>';
+        container.innerHTML = html;
+      } catch (err) {
+        document.getElementById('orderList').innerHTML = '<p class="error">Gagal memuat data.</p>';
+      }
+    }
+
+    function resetForm() {
+      document.getElementById('resiForm').reset();
+      document.getElementById('shopName').value = 'TikTok Shop';
+    }
+
+    loadOrders();
+  </script>
+</body>
+</html>
